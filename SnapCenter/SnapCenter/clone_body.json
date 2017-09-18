@@ -1,0 +1,21 @@
+{
+        "CloneConfiguration":
+                {
+                "$type": "SMCoreContracts.SmCloneConfiguration, SMCoreContracts",
+                "Suffix": "_clone1",
+                  "CloneConfigurationApplication": {
+                    "$type": "SMCoreContracts.SmSCCloneConfiguration, SMCoreContracts",
+                    "MountCmd": [ "mount 10.192.39.72:%mysql_vol_Clone /var/lib/mysql2" ], ///SnapDataLeafIP   ///SnapMountPath
+                    "PostCloneCreateCmd": [ "/var/lib/start-mysql.sh" ],
+                    "Host": "app-linux1.lab.com"
+                  }
+               },
+               "Backups": [
+                        {
+                                "PrimaryBackup":
+                                {
+                                        "BackupName": "app-linux2_lab_com_MySQL_apprenda_db_app-linux2_08-01-2017_07.09.11.4866"
+                                }
+                        }
+               ]
+}

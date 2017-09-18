@@ -1,0 +1,23 @@
+
+{
+        "ProtectionGroup":
+        {
+                "Configuration":
+                {
+                 "$type": "SMCoreContracts.SmBackupConfiguration, SMCoreContracts",
+                 "Name": "rg_internal",
+                 "PluginConfiguration":
+                  {
+                    "$type": "SMCoreContracts.SmSCBackupConfiguration, SMCoreContracts",
+                    "FileSystemConsistentSnapshot": false,
+                  },
+                 "ConfigurationType": "ProtectionGroup"
+                },
+                "Policies": [
+                        {
+                            "Name": "<<OnDemand-Policy Name>>",
+                        }
+                ],
+                "ProtectionGroupType": "Backup"
+        }
+}

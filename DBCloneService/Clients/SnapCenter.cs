@@ -1,0 +1,215 @@
+﻿using Apprenda.Services.Logging;
+using DBCloning.Models;
+using Newtonsoft.Json;
+using RestSharp;
+using System;
+using System.Net;
+using System.Threading.Tasks;
+
+namespace DBCloning.Clients
+{
+    public class SnapCenter
+    {
+        private readonly ILogger log = LogManager.Instance().GetLogger(typeof(ACP));
+        private readonly RestClient client;
+        private string token;
+        private static string snapUrl = string.Empty;
+
+        private SnapCenter(string baseUrl)
+        {
+            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls11;
+            ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };
+            this.client = new RestClient(baseUrl);
+        }
+
+        internal static async Task<SnapCenter> NewSnapCenterSession(SnapSession session)
+        {
+            snapUrl = session.Url;
+            var client = new SnapCenter(snapUrl);
+            User u = new User { Name = session.Admin, Passphrase = session.Pass, Rolename = "SnapCenterAdmin" };
+            UserOperationContext c = new UserOperationContext { User = u };
+            AuthRequest body = new AuthRequest { UserOperationContext = c };
+
+            try
+            {
+                var authResponse = await client.SendRequestAsync<dynamic>(Method.POST, "/api/3.0/auth/login?TokenNeverExpires=true", body);
+                client.log.Info($"Payload: {authResponse.Payload}");
+                client.log.Info($"User obj in payload: { authResponse.Payload.User}");
+                client.token = authResponse.Payload.User.Token;
+
+                return client;
+            }
+            catch (Exception ex)
+            {
+                client.log.Error($"Error getting authentication token: {ex}");
+                throw;
+            }
+        }
+
+        internal async Task<string> GetDbKey(SnapSession session)
+        {
+            try
+            {
+                log.Info($"Token = {this.token}");
+                var response = await this.SendRequestAsync<dynamic>(Method.GET, $"/api/3.0/hosts/{session.HostName}/plugins/MySQL/resources?ResourceType=Database&ResourceName={session.DbName}");
+                log.Info($"Payload: {response.Payload}");
+                string dbKey = response.Payload.Resources[0].OperationResults[0].Target.Key;
+                return dbKey;
+            }
+            catch (Exception ex)
+            {
+                this.log.Error($"Error while getting DB key: {ex}");
+                throw ex;
+            }
+        }
+
+        internal async Task<string> ProtectResource(SnapSession session)
+        {
+            try
+            {
+                ProtectionBody body = new ProtectionBody();
+                body.ProtectionGroup = new ProtectionGroup();
+                body.ProtectionGroup.ProtectionGroupType = "Backup";
+                ProtectionPolicy p = new ProtectionPolicy();
+                p.Name = session.Policy;
+                body.ProtectionGroup.Policies = new System.Collections.Generic.List<ProtectionPolicy>();
+                body.ProtectionGroup.Policies.Add(p);
+                PluginConfiguration pconf = new PluginConfiguration();
+                pconf.type = "SMCoreContracts.SmSCBackupConfiguration, SMCoreContracts";
+                pconf.FileSystemConsistentSnapshot = false;
+                ProtectionConfiguration conf = new ProtectionConfiguration();
+                conf.type = "SMCoreContracts.SmSCBackupConfiguration, SMCoreContracts";
+                conf.Name = "rg_internal";
+                conf.ConfigurationType = "ProtectionGroup";
+                conf.PluginConfiguration = pconf;
+                body.ProtectionGroup.Configuration = conf;
+                var response = await this.SendRequestAsync<dynamic>(Method.POST, $"/api/3.0/plugins/{session.Plugin}/resources/{session.DbKey}/protect", body);
+                return response.Response.StatusCode.ToString();
+            }
+            catch (Exception ex)
+            {
+                this.log.Error($"Error while protecting resource with key {session.DbKey}: {ex}");
+                throw;
+            }
+        }
+
+        internal async Task<string> BackUp(SnapSession session)
+        {
+            try
+            {
+                var response = await this.SendRequestAsync<dynamic>(Method.GET, $"/api/3.0/plugins/{session.Plugin}/resources/{session.DbKey}/backup");
+                log.Info($"Payload Backup: {response.Payload}");
+                string jobUri = response.Payload.joburi;
+                log.Info($"jobUri: {jobUri}");
+                string[] paths = jobUri.Split('/');
+                string backUpJobID = paths[paths.Length - 1];
+                log.Info($"backUpJobID: {backUpJobID}");
+                return backUpJobID;
+            }
+            catch (Exception ex)
+            {
+                this.log.Error($"Error while getting DB key: {ex}");
+                throw;
+            }
+        }
+
+        internal async Task<BackUp> BackUpDetails(SnapSession session)
+        {
+            try
+            {
+                ClientResponse<SnapBackupResponse> response = await this.SendRequestAsync<SnapBackupResponse>(Method.GET, $"/api/3.0/backups?JobId={session.BackUpJobID}");
+                log.Info($"Payload Backup Detail: {response.Payload}");
+                BackUp theBackup = null;
+                if (response.Payload.Backups != null)
+                {
+                    //todo: check for the right one
+                    foreach(BackUp b in response.Payload.Backups)
+                    {
+                        theBackup = b;
+                    }
+
+                }
+                log.Info($"The Backup Detail: {theBackup.BackupId} {theBackup.BackupName}");
+                return theBackup;
+
+
+            }
+            catch (Exception ex)
+            {
+                this.log.Error($"Error while getting backup details for job id {session.BackUpJobID}: {ex}");
+                throw;
+            }
+        }
+
+        internal async Task<string> Clone(SnapSession session)
+        {
+            try
+            {
+                PrimaryBackup b = new PrimaryBackup();
+                b.BackupName = session.BackupName;
+                CloneBody body = new CloneBody();
+                CloneConfigurationApplication cloneConfApp = new CloneConfigurationApplication();
+                cloneConfApp.type = "SMCoreContracts.SmSCCloneConfiguration, SMCoreContracts";
+                cloneConfApp.MountCmd = new System.Collections.Generic.List<string>();
+                cloneConfApp.MountCmd.Add($"mount {session.LeafIP}:% mysql_vol_Clone {session.MountPath}");
+                cloneConfApp.PostCloneCreateCmd = new System.Collections.Generic.List<string>();
+                cloneConfApp.PostCloneCreateCmd.Add($"{session.MountScript}");
+                cloneConfApp.Host = session.CloneHostName;
+                CloneConfiguration conf = new CloneConfiguration();
+                conf.type = "SMCoreContracts.SmCloneConfiguration, SMCoreContracts";
+                conf.Suffix = "_clone1";
+                conf.CloneConfigurationApplication = cloneConfApp;
+                body.CloneConfiguration = conf;
+                body.Backups = new System.Collections.Generic.List<PrimaryBackup>();
+                body.Backups.Add(b);
+                var response = await this.SendRequestAsync<dynamic>(Method.POST, $"/api/3.0/plugins/{session.Plugin}/resources/{session.BackUpID}/clone", body);
+                return response.Response.StatusCode.ToString();
+            }
+            catch (Exception ex)
+            {
+                this.log.Error($"Error while cloning {session.DbKey}: {ex}");
+                throw;
+            }
+        }
+
+        private async Task<ClientResponse<TPayload>> SendRequestAsync<TPayload>(Method method, string restUrl, object body = null)
+        {
+            var request = new RestRequest(restUrl, method);
+
+            if (!string.IsNullOrWhiteSpace(this.token))
+            {
+                request.AddHeader("X-Auth-Token", this.token);
+            }
+
+            if (body != null)
+            {
+                string serialized = JsonConvert.SerializeObject(body);
+                log.Info($"Request body: {serialized}");
+                request.AddParameter("application/json", serialized, ParameterType.RequestBody);
+            }
+
+            var response = await this.client.ExecuteTaskAsync(request);
+            this.log.Info($"Response Status Code: {response.StatusCode}");
+            this.log.Info($"Response Error Message: {response.ErrorMessage}");
+            if (response.ErrorException != null)
+            {
+                this.log.Info($"Response Error Message: {response.ErrorException.ToString()}");
+            }
+            this.log.Info($"Response Response Status: {response.ResponseStatus}");
+            this.log.Info($"Response Status Description: {response.StatusDescription}");
+            this.log.Info($"Response Content: {response.Content}");
+
+            if ((int)response.StatusCode < 400 || response.StatusCode == HttpStatusCode.NotFound)
+            {
+                return new ClientResponse<TPayload>
+                {
+                    Response = response,
+                    Payload = JsonConvert.DeserializeObject<TPayload>(response.Content)
+                };
+            }
+
+            throw new Exception($"Request failed with status code {response.StatusCode}: {response.Content}");
+        }
+
+    }
+}

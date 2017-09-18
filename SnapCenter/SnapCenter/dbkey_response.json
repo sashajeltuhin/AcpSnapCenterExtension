@@ -1,0 +1,34 @@
+{
+  "Job": {
+        "Name": null,
+        "Id": 799
+  },
+  "Resources": [
+        {
+          "PluginCode": 7,
+          "OperationResults": [
+                {
+                  "Target": {
+                        "$type": "SMCoreContracts.SmSCPluginResource, SMCoreContracts",
+                        "PluginName": "MySQL",
+                        "Name": "apprendadb",
+                        "Uid": "apprendadb",
+                        "Type": "Database",
+                        "ParentUid": "",
+                        "Id": "app-linux2.lab.com\\MySQL\\apprendadb",
+                        * "Key": 3
+                  },
+                  "Result": {
+                        "_message": "",
+                        "_errorCode": 0,
+                        "ErrorRecords": []
+                  }
+                },
+
+  ],
+  "Result": {
+        "_message": "",
+        "_errorCode": 0,
+        "ErrorRecords": []
+  }
+}

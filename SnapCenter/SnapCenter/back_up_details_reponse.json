@@ -1,0 +1,20 @@
+Response:
+{
+  "Job": {
+        "Name": null,
+        "Id": 0,
+  },
+  "Backups": [
+        {
+          "BackupName": "app-linux2_lab_com_MySQL_apprenda_db_app-linux2_08-01-2017_07.09.11.4866",
+          "Name": "",
+          "BackupId": "611"
+        }
+  ],
+  "Result": {
+        "_message": "",
+        "_errorCode": 0,
+        "ErrorRecords": []
+  }
+}
+

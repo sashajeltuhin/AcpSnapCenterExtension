@@ -1,0 +1,45 @@
+﻿<?xml version='1.0' encoding='utf-8'?>
+<SettingsFile xmlns="http://schemas.microsoft.com/VisualStudio/2004/01/settings" CurrentProfile="(Default)" GeneratedClassNamespace="DBCloning.Properties" GeneratedClassName="Settings">
+  <Profiles />
+  <Settings>
+    <Setting Name="PathBasedHost" Type="System.String" Scope="User">
+      <Value Profile="(Default)">app</Value>
+    </Setting>
+    <Setting Name="CloudHost" Type="System.String" Scope="User">
+      <Value Profile="(Default)">devops.lab.com</Value>
+    </Setting>
+    <Setting Name="SnapPlugin" Type="System.String" Scope="User">
+      <Value Profile="(Default)">MySQL</Value>
+    </Setting>
+    <Setting Name="SnapCenterUrl" Type="System.String" Scope="User">
+      <Value Profile="(Default)">https://10.192.39.22:8146</Value>
+    </Setting>
+    <Setting Name="SnapCenterAdmin" Type="System.String" Scope="User">
+      <Value Profile="(Default)">LAB\\Administrator</Value>
+    </Setting>
+    <Setting Name="SnapCenterPassword" Type="System.String" Scope="User">
+      <Value Profile="(Default)">Netapp!2</Value>
+    </Setting>
+    <Setting Name="SnapDBName" Type="System.String" Scope="User">
+      <Value Profile="(Default)">apprendadb</Value>
+    </Setting>
+    <Setting Name="SnapDBHost" Type="System.String" Scope="User">
+      <Value Profile="(Default)">app-linux2.lab.com</Value>
+    </Setting>
+    <Setting Name="SnapPolicy" Type="System.String" Scope="User">
+      <Value Profile="(Default)">mysql_ondemand</Value>
+    </Setting>
+    <Setting Name="SnapMountScript" Type="System.String" Scope="User">
+      <Value Profile="(Default)">/var/lib/start-mysql.sh</Value>
+    </Setting>
+    <Setting Name="SnapDataLeafIP" Type="System.String" Scope="User">
+      <Value Profile="(Default)">10.192.39.71</Value>
+    </Setting>
+    <Setting Name="SnapMountPath" Type="System.String" Scope="User">
+      <Value Profile="(Default)">/var/lib/mysql2</Value>
+    </Setting>
+    <Setting Name="SnapDBCloneHost" Type="System.String" Scope="User">
+      <Value Profile="(Default)">app-linux1.lab.com</Value>
+    </Setting>
+  </Settings>
+</SettingsFile>

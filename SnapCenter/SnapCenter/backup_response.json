@@ -1,0 +1,17 @@
+Response
+{
+  "pragma": "no-cache",
+  "strict-transport-security": "max-age=31536000",
+  "server": "Microsoft-IIS/8.5",
+  "x-aspnet-version": "4.0.30319",
+  "joburi": "https://<<SC-Server-IP>>/api/jobs/730",
+  "x-powered-by": "ASP.NET",
+  "x-frame-options": "SAMEORIGIN",
+  "content-type": "text/plain; charset=utf-8",
+  "access-control-allow-origin": "none",
+  "cache-control": "no-cache",
+  "access-control-allow-credentials": "false",
+  "content-length": "16",
+  "date": "Tue, 01 Aug 2017 12:05:55 GMT",
+  "expires": "-1"
+}
