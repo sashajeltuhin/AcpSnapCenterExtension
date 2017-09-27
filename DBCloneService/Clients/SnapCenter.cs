@@ -102,7 +102,7 @@ namespace DBCloning.Clients
         {
             try
             {
-                var response = await this.SendRequestAsync<dynamic>(Method.GET, $"api/3.0/plugins/{session.Plugin}/resources/{session.DbKey}/backup");
+                var response = await this.SendRequestAsync<dynamic>(Method.POST, $"api/3.0/plugins/{session.Plugin}/resources/{session.DbKey}/backup");
                 log.Info($"Payload Backup: {response.Payload}");
                 string jobUri = response.Payload.joburi;
                 jobUri = jobUri.Trim('\r', '\n');
