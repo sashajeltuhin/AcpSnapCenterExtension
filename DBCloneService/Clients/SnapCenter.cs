@@ -32,11 +32,13 @@ namespace DBCloning.Clients
 
             try
             {
-                var authResponse = await client.SendRequestAsync<dynamic>(Method.POST, "/api/3.0/auth/login?TokenNeverExpires=true", body);
+                var authResponse = await client.SendRequestAsync<dynamic>(Method.POST, "api/3.0/auth/login?TokenNeverExpires=true", body);
                 client.log.Info($"Payload: {authResponse.Payload}");
                 client.log.Info($"User obj in payload: { authResponse.Payload.User}");
-                client.token = authResponse.Payload.User.Token;
-
+                string t = authResponse.Payload.User.Token;
+                t = t.Trim('\r', '\n');
+                client.token = t;
+                client.log.Info($"Token after trimming: {client.token}");
                 return client;
             }
             catch (Exception ex)
@@ -51,9 +53,11 @@ namespace DBCloning.Clients
             try
             {
                 log.Info($"Token = {this.token}");
-                var response = await this.SendRequestAsync<dynamic>(Method.GET, $"/api/3.0/hosts/{session.HostName}/plugins/MySQL/resources?ResourceType=Database&ResourceName={session.DbName}");
+                var response = await this.SendRequestAsync<dynamic>(Method.GET, $"api/3.0/hosts/{session.HostName}/plugins/MySQL/resources?ResourceType=Database&ResourceName={session.DbName}");
                 log.Info($"Payload: {response.Payload}");
                 string dbKey = response.Payload.Resources[0].OperationResults[0].Target.Key;
+                dbKey = dbKey.Trim('\r', '\n');
+                log.Info($"dbKey after trimming: {dbKey}");
                 return dbKey;
             }
             catch (Exception ex)
@@ -83,8 +87,9 @@ namespace DBCloning.Clients
                 conf.ConfigurationType = "ProtectionGroup";
                 conf.PluginConfiguration = pconf;
                 body.ProtectionGroup.Configuration = conf;
-                var response = await this.SendRequestAsync<dynamic>(Method.POST, $"/api/3.0/plugins/{session.Plugin}/resources/{session.DbKey}/protect", body);
-                return response.Response.StatusCode.ToString();
+                var response = await this.SendRequestAsync<dynamic>(Method.POST, $"api/3.0/plugins/{session.Plugin}/resources/{session.DbKey}/protect", body, false);
+                this.log.Info($"Protect Resource Response: {response.Response.Content.ToString()}");
+                return response.Response.Content.ToString();
             }
             catch (Exception ex)
             {
@@ -97,9 +102,10 @@ namespace DBCloning.Clients
         {
             try
             {
-                var response = await this.SendRequestAsync<dynamic>(Method.GET, $"/api/3.0/plugins/{session.Plugin}/resources/{session.DbKey}/backup");
+                var response = await this.SendRequestAsync<dynamic>(Method.GET, $"api/3.0/plugins/{session.Plugin}/resources/{session.DbKey}/backup");
                 log.Info($"Payload Backup: {response.Payload}");
                 string jobUri = response.Payload.joburi;
+                jobUri = jobUri.Trim('\r', '\n');
                 log.Info($"jobUri: {jobUri}");
                 string[] paths = jobUri.Split('/');
                 string backUpJobID = paths[paths.Length - 1];
@@ -117,7 +123,7 @@ namespace DBCloning.Clients
         {
             try
             {
-                ClientResponse<SnapBackupResponse> response = await this.SendRequestAsync<SnapBackupResponse>(Method.GET, $"/api/3.0/backups?JobId={session.BackUpJobID}");
+                ClientResponse<SnapBackupResponse> response = await this.SendRequestAsync<SnapBackupResponse>(Method.GET, $"api/3.0/backups?JobId={session.BackUpJobID}");
                 log.Info($"Payload Backup Detail: {response.Payload}");
                 BackUp theBackup = null;
                 if (response.Payload.Backups != null)
@@ -162,7 +168,7 @@ namespace DBCloning.Clients
                 body.CloneConfiguration = conf;
                 body.Backups = new System.Collections.Generic.List<PrimaryBackup>();
                 body.Backups.Add(b);
-                var response = await this.SendRequestAsync<dynamic>(Method.POST, $"/api/3.0/plugins/{session.Plugin}/resources/{session.BackUpID}/clone", body);
+                var response = await this.SendRequestAsync<dynamic>(Method.POST, $"api/3.0/plugins/{session.Plugin}/resources/{session.BackUpID}/clone", body);
                 return response.Response.StatusCode.ToString();
             }
             catch (Exception ex)
@@ -172,13 +178,15 @@ namespace DBCloning.Clients
             }
         }
 
-        private async Task<ClientResponse<TPayload>> SendRequestAsync<TPayload>(Method method, string restUrl, object body = null)
+        private async Task<ClientResponse<TPayload>> SendRequestAsync<TPayload>(Method method, string restUrl, object body = null, bool json = true)
         {
             var request = new RestRequest(restUrl, method);
+            log.Info($"Request url: {this.client.BaseUrl}{restUrl}");
 
             if (!string.IsNullOrWhiteSpace(this.token))
             {
-                request.AddHeader("X-Auth-Token", this.token);
+                log.Info($"Adding token header to the request: {this.token}");
+                request.AddHeader("token", this.token);
             }
 
             if (body != null)
@@ -201,11 +209,13 @@ namespace DBCloning.Clients
 
             if ((int)response.StatusCode < 400 || response.StatusCode == HttpStatusCode.NotFound)
             {
-                return new ClientResponse<TPayload>
+                ClientResponse < TPayload > r = new ClientResponse<TPayload>{ Response = response };
+                if (json)
                 {
-                    Response = response,
-                    Payload = JsonConvert.DeserializeObject<TPayload>(response.Content)
-                };
+                    r.Payload = JsonConvert.DeserializeObject<TPayload>(response.Content);
+                }
+
+                return r;
             }
 
             throw new Exception($"Request failed with status code {response.StatusCode}: {response.Content}");

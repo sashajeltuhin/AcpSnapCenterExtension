@@ -7,5 +7,6 @@
         public IRestResponse Response { get; set; }
 
         public TPayload Payload { get; set; }
+
     }
 }
