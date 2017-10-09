@@ -11,6 +11,12 @@ namespace DBCloning.Models
     {
         public ProtectionGroup ProtectionGroup { get; set; }
     }
+
+    public class BackupBody
+    {
+        public string name { get; set; }
+    }
+
     public class ProtectionGroup
     {
         public ProtectionConfiguration Configuration { get; set; }

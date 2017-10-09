@@ -102,7 +102,9 @@ namespace DBCloning.Clients
         {
             try
             {
-                var response = await this.SendRequestAsync<dynamic>(Method.POST, $"api/3.0/plugins/{session.Plugin}/resources/{session.DbKey}/backup");
+                BackupBody body = new BackupBody();
+                body.name = session.Policy;
+                var response = await this.SendRequestAsync<dynamic>(Method.POST, $"api/3.0/plugins/{session.Plugin}/resources/{session.DbKey}/backup",body,false);
                 log.Info($"Payload Backup: {response.Payload}");
                 string jobUri = response.Payload.joburi;
                 jobUri = jobUri.Trim('\r', '\n');
@@ -185,7 +187,7 @@ namespace DBCloning.Clients
 
             if (!string.IsNullOrWhiteSpace(this.token))
             {
-                log.Info($"Adding token header to the request: {this.token}");
+                log.Info($"Adding token header Akshay to the request: {this.token}");
                 request.AddHeader("token", this.token);
             }
 
