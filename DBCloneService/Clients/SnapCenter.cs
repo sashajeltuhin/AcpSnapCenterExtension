@@ -102,7 +102,10 @@ namespace DBCloning.Clients
         {
             try
             {
-                var response = await this.SendRequestAsync<dynamic>(Method.POST, $"api/3.0/plugins/{session.Plugin}/resources/{session.DbKey}/backup");
+                BackupBody body = new BackupBody();
+                body.name = session.Policy;
+                var response = await this.SendRequestAsync<dynamic>(Method.POST, $"api/3.0/plugins/{session.Plugin}/resources/{session.DbKey}/backup",body,false);
+             
                 log.Info($"Payload Backup: {response.Payload}");
                 string jobUri = string.Empty;
                 for (int x = 0; x < response.Response.Headers.Count; x++)
