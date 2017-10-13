@@ -104,17 +104,40 @@ namespace DBCloning.Clients
             {
                 var response = await this.SendRequestAsync<dynamic>(Method.POST, $"api/3.0/plugins/{session.Plugin}/resources/{session.DbKey}/backup");
                 log.Info($"Payload Backup: {response.Payload}");
-                string jobUri = response.Payload.joburi;
-                jobUri = jobUri.Trim('\r', '\n');
-                log.Info($"jobUri: {jobUri}");
-                string[] paths = jobUri.Split('/');
-                string backUpJobID = paths[paths.Length - 1];
-                log.Info($"backUpJobID: {backUpJobID}");
+                string jobUri = string.Empty;
+                for (int x = 0; x < response.Response.Headers.Count; x++)
+                {
+                    Parameter p = response.Response.Headers[x];
+                    log.Info($"Backup Header: {p.Name} = {p.Value}");
+                    if (p.Name == "joburi")
+                    {
+                        jobUri = p.Value.ToString();
+                        break;
+                    }
+                }
+                string backUpJobID = string.Empty;
+                if (string.IsNullOrEmpty(jobUri) == false)
+                {
+                    jobUri = jobUri.Trim('\r', '\n');
+                    log.Info($"jobUri: {jobUri}");
+                    string[] paths = jobUri.Split('/');
+                    if (paths.Length > 0)
+                    {
+                        backUpJobID = paths[paths.Length - 1];
+                        log.Info($"backUpJobID: {backUpJobID}");
+                    }
+                }
+                else
+                {
+                    string errmsg = "Backup Header joburi not found";
+                    log.Info(errmsg);
+                    throw new Exception(errmsg);
+                }
                 return backUpJobID;
             }
             catch (Exception ex)
             {
-                this.log.Error($"Error while getting DB key: {ex}");
+                this.log.Error($"Error while performing backup: {ex}");
                 throw;
             }
         }
