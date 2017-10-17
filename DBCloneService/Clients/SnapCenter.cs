@@ -1,10 +1,11 @@
-﻿using Apprenda.Services.Logging;
+using Apprenda.Services.Logging;
 using DBCloning.Models;
 using Newtonsoft.Json;
 using RestSharp;
 using System;
 using System.Net;
 using System.Threading.Tasks;
+using System.Threading;
 
 namespace DBCloning.Clients
 {
@@ -102,21 +103,48 @@ namespace DBCloning.Clients
         {
             try
             {
+
                 BackupBody body = new BackupBody();
                 body.name = session.Policy;
-                var response = await this.SendRequestAsync<dynamic>(Method.POST, $"api/3.0/plugins/{session.Plugin}/resources/{session.DbKey}/backup",body,false);
+                var response = await this.SendRequestAsync<dynamic>(Method.POST, $"api/3.0/plugins/{session.Plugin}/resources/{session.DbKey}/backup", body, false);
+                
                 log.Info($"Payload Backup: {response.Payload}");
-                string jobUri = response.Payload.joburi;
-                jobUri = jobUri.Trim('\r', '\n');
-                log.Info($"jobUri: {jobUri}");
-                string[] paths = jobUri.Split('/');
-                string backUpJobID = paths[paths.Length - 1];
-                log.Info($"backUpJobID: {backUpJobID}");
+                string jobUri = string.Empty;
+                for (int x = 0; x < response.Response.Headers.Count; x++)
+                {
+                    Parameter p = response.Response.Headers[x];
+                    log.Info($"Backup Header: {p.Name} = {p.Value}");
+                    if (p.Name == "JobURI")
+                    {
+                        jobUri = p.Value.ToString();
+                        break;
+                    }
+                }
+                string backUpJobID = string.Empty;
+                if (string.IsNullOrEmpty(jobUri) == false)
+                {
+                    jobUri = jobUri.Trim('\r', '\n');
+                    log.Info($"jobUri: {jobUri}");
+                    string[] paths = jobUri.Split('/');
+                    if (paths.Length > 0)
+                    {
+                        backUpJobID = paths[paths.Length - 1];
+                        log.Info($"backUpJobID: {backUpJobID}");
+                    }
+                }
+                else
+                {
+                    string errmsg = "Backup Header joburi not found";
+                    log.Info(errmsg);
+                    throw new Exception(errmsg);
+                }
                 return backUpJobID;
+                Thread.Sleep(5);
+                
             }
             catch (Exception ex)
             {
-                this.log.Error($"Error while getting DB key: {ex}");
+                this.log.Error($"Error while performing backup: {ex}");
                 throw;
             }
         }
@@ -128,6 +156,7 @@ namespace DBCloning.Clients
                 ClientResponse<SnapBackupResponse> response = await this.SendRequestAsync<SnapBackupResponse>(Method.GET, $"api/3.0/backups?JobId={session.BackUpJobID}");
                 log.Info($"Payload Backup Detail: {response.Payload}");
                 BackUp theBackup = null;
+                theBackup..
                 if (response.Payload.Backups != null)
                 {
                     //todo: check for the right one
@@ -187,7 +216,7 @@ namespace DBCloning.Clients
 
             if (!string.IsNullOrWhiteSpace(this.token))
             {
-                log.Info($"Adding token header Akshay to the request: {this.token}");
+                log.Info($"Adding token header to the request: {this.token}");
                 request.AddHeader("token", this.token);
             }
 
@@ -224,4 +253,6 @@ namespace DBCloning.Clients
         }
 
     }
+
+    
 }
