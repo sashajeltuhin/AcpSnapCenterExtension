@@ -187,8 +187,12 @@ namespace DBCloning
                         this.log.Info($"Protecting resource");
                         await snapClient.ProtectResource(this.snapSession);
 
+                        await Task.Delay(25000);
+
                         this.log.Info($"Initiating backup");
                         snapSession.BackUpJobID = await snapClient.BackUp(snapSession);
+
+                        await Task.Delay(25000);
 
                         this.log.Info($"Getting backup details for jobID {snapSession.BackUpJobID}");
                         BackUp b = await snapClient.BackUpDetails(snapSession);

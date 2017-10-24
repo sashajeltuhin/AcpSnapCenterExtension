@@ -114,7 +114,7 @@ namespace DBCloning.Clients
                 };
             }
 
-            throw new Exception($"Request failed with SC status code {response.StatusCode}: {response.Content}");
+            throw new Exception($"Request failed with status code {response.StatusCode}: {response.Content}");
         }
     }
 }

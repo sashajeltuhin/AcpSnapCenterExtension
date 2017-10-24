@@ -11,12 +11,6 @@ namespace DBCloning.Models
     {
         public ProtectionGroup ProtectionGroup { get; set; }
     }
-
-    public class BackupBody
-    {
-        public string name { get; set; }
-    }
-
     public class ProtectionGroup
     {
         public ProtectionConfiguration Configuration { get; set; }
@@ -45,6 +39,12 @@ namespace DBCloning.Models
         public string Name { get; set; }
     }
 
+
+    public class BackupBody
+    {
+        public string name { get; set; }
+    }
+
     public class SnapBackupResponse
     {
         public Job Job { get; set; }
@@ -64,12 +64,19 @@ namespace DBCloning.Models
     public class CloneBody
     {
         public CloneConfiguration CloneConfiguration { get; set; }
-        public List<PrimaryBackup> Backups { get; set; }
+        public List<Backups> Backups { get; set; }
+    }
+
+    public class Backups
+    {
+        
+        public PrimaryBackup PrimaryBackup { get; set; }
+
     }
 
     public class CloneConfigurationApplication
     {
-        [JsonProperty("@type")]
+        [JsonProperty("$type")]
         public string type { get; set; }
         public List<string> MountCmd { get; set; }
         public List<string> PostCloneCreateCmd { get; set; }
@@ -78,7 +85,7 @@ namespace DBCloning.Models
 
     public class CloneConfiguration
     {
-        [JsonProperty("@type")]
+        [JsonProperty("$type")]
         public string type { get; set; }
         public string Suffix { get; set; }
         public CloneConfigurationApplication CloneConfigurationApplication { get; set; }

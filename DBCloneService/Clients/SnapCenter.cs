@@ -1,11 +1,10 @@
-using Apprenda.Services.Logging;
+﻿using Apprenda.Services.Logging;
 using DBCloning.Models;
 using Newtonsoft.Json;
 using RestSharp;
 using System;
 using System.Net;
 using System.Threading.Tasks;
-using System.Threading;
 
 namespace DBCloning.Clients
 {
@@ -103,11 +102,10 @@ namespace DBCloning.Clients
         {
             try
             {
-
                 BackupBody body = new BackupBody();
                 body.name = session.Policy;
-                var response = await this.SendRequestAsync<dynamic>(Method.POST, $"api/3.0/plugins/{session.Plugin}/resources/{session.DbKey}/backup", body, false);
-                
+                var response = await this.SendRequestAsync<dynamic>(Method.POST, $"api/3.0/plugins/{session.Plugin}/resources/{session.DbKey}/backup",body,false);
+             
                 log.Info($"Payload Backup: {response.Payload}");
                 string jobUri = string.Empty;
                 for (int x = 0; x < response.Response.Headers.Count; x++)
@@ -139,8 +137,6 @@ namespace DBCloning.Clients
                     throw new Exception(errmsg);
                 }
                 return backUpJobID;
-                Thread.Sleep(5);
-                
             }
             catch (Exception ex)
             {
@@ -156,7 +152,6 @@ namespace DBCloning.Clients
                 ClientResponse<SnapBackupResponse> response = await this.SendRequestAsync<SnapBackupResponse>(Method.GET, $"api/3.0/backups?JobId={session.BackUpJobID}");
                 log.Info($"Payload Backup Detail: {response.Payload}");
                 BackUp theBackup = null;
-                theBackup..
                 if (response.Payload.Backups != null)
                 {
                     //todo: check for the right one
@@ -182,24 +177,40 @@ namespace DBCloning.Clients
         {
             try
             {
-                PrimaryBackup b = new PrimaryBackup();
-                b.BackupName = session.BackupName;
                 CloneBody body = new CloneBody();
+
+                PrimaryBackup b = new PrimaryBackup();
+                
+                b.BackupName = session.BackupName;
+
+                
+
+
                 CloneConfigurationApplication cloneConfApp = new CloneConfigurationApplication();
                 cloneConfApp.type = "SMCoreContracts.SmSCCloneConfiguration, SMCoreContracts";
                 cloneConfApp.MountCmd = new System.Collections.Generic.List<string>();
-                cloneConfApp.MountCmd.Add($"mount {session.LeafIP}:% mysql_vol_Clone {session.MountPath}");
+                cloneConfApp.MountCmd.Add($"mount {session.LeafIP}:%mysql_vol_Clone {session.MountPath}");
                 cloneConfApp.PostCloneCreateCmd = new System.Collections.Generic.List<string>();
                 cloneConfApp.PostCloneCreateCmd.Add($"{session.MountScript}");
                 cloneConfApp.Host = session.CloneHostName;
+
                 CloneConfiguration conf = new CloneConfiguration();
                 conf.type = "SMCoreContracts.SmCloneConfiguration, SMCoreContracts";
                 conf.Suffix = "_clone1";
                 conf.CloneConfigurationApplication = cloneConfApp;
+
+                Backups back = new Backups();
+                back.PrimaryBackup = b;
+
+
+
+                body.Backups = new System.Collections.Generic.List<Backups>();
+                
+
                 body.CloneConfiguration = conf;
-                body.Backups = new System.Collections.Generic.List<PrimaryBackup>();
-                body.Backups.Add(b);
-                var response = await this.SendRequestAsync<dynamic>(Method.POST, $"api/3.0/plugins/{session.Plugin}/resources/{session.BackUpID}/clone", body);
+                body.Backups.Add(back);
+
+                var response = await this.SendRequestAsync<dynamic>(Method.POST, $"api/3.0/plugins/{session.Plugin}/resources/{session.DbKey}/clone", body);
                 return response.Response.StatusCode.ToString();
             }
             catch (Exception ex)
