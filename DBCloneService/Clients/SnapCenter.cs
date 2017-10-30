@@ -112,7 +112,7 @@ namespace DBCloning.Clients
                 {
                     Parameter p = response.Response.Headers[x];
                     log.Info($"Backup Header: {p.Name} = {p.Value}");
-                    if (p.Name == "joburi")
+                    if (p.Name == "JobURI")
                     {
                         jobUri = p.Value.ToString();
                         break;
@@ -158,10 +158,15 @@ namespace DBCloning.Clients
                     foreach(BackUp b in response.Payload.Backups)
                     {
                         theBackup = b;
+                        log.Info($"The Backup Detail: {theBackup.BackupId} {theBackup.BackupName}");
                     }
 
                 }
-                log.Info($"The Backup Detail: {theBackup.BackupId} {theBackup.BackupName}");
+                if(theBackup == null)
+                {
+                    log.Info($"No backup details for jobid {session.BackUpJobID}");
+                }
+                
                 return theBackup;
 
 
@@ -183,7 +188,7 @@ namespace DBCloning.Clients
                 CloneConfigurationApplication cloneConfApp = new CloneConfigurationApplication();
                 cloneConfApp.type = "SMCoreContracts.SmSCCloneConfiguration, SMCoreContracts";
                 cloneConfApp.MountCmd = new System.Collections.Generic.List<string>();
-                cloneConfApp.MountCmd.Add($"mount {session.LeafIP}:% mysql_vol_Clone {session.MountPath}");
+                cloneConfApp.MountCmd.Add($"mount {session.LeafIP}:%mysql_vol_Clone {session.MountPath}");
                 cloneConfApp.PostCloneCreateCmd = new System.Collections.Generic.List<string>();
                 cloneConfApp.PostCloneCreateCmd.Add($"{session.MountScript}");
                 cloneConfApp.Host = session.CloneHostName;
@@ -192,9 +197,11 @@ namespace DBCloning.Clients
                 conf.Suffix = "_clone1";
                 conf.CloneConfigurationApplication = cloneConfApp;
                 body.CloneConfiguration = conf;
-                body.Backups = new System.Collections.Generic.List<PrimaryBackup>();
-                body.Backups.Add(b);
-                var response = await this.SendRequestAsync<dynamic>(Method.POST, $"api/3.0/plugins/{session.Plugin}/resources/{session.BackUpID}/clone", body);
+                body.Backups = new System.Collections.Generic.List<Backups>();
+                Backups back = new Backups();
+                back.PrimaryBackup = b;
+                body.Backups.Add(back);
+                var response = await this.SendRequestAsync<dynamic>(Method.POST, $"api/3.0/plugins/{session.Plugin}/resources/{session.DbKey}/clone", body);
                 return response.Response.StatusCode.ToString();
             }
             catch (Exception ex)

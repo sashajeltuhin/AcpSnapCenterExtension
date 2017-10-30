@@ -55,11 +55,6 @@
     <Compile Include="Clients\ACP.cs" />
     <Compile Include="Clients\SnapCenter.cs" />
     <Compile Include="IDBCloneService.cs" />
-    <Compile Include="Models\AcpModel.cs" />
-    <Compile Include="Models\ClientResponse.cs" />
-    <Compile Include="Models\CustomProperties.cs" />
-    <Compile Include="Models\SnapModel.cs" />
-    <Compile Include="Models\SnapSession.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="DBCloneService.cs" />
     <Compile Include="Properties\Settings.Designer.cs">
@@ -75,6 +70,12 @@
       <Generator>SettingsSingleFileGenerator</Generator>
       <LastGenOutput>Settings.Designer.cs</LastGenOutput>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Models\Models.csproj">
+      <Project>{38e9d1ee-5662-4539-a71b-ab0e109c3aab}</Project>
+      <Name>Models</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>

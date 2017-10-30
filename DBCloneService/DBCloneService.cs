@@ -11,6 +11,7 @@ using System.Linq;
 using System.Runtime.Serialization;
 using System.ServiceModel;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace DBCloning
@@ -18,6 +19,7 @@ namespace DBCloning
     // NOTE: You can use the "Rename" command on the "Refactor" menu to change the class name "Service1" in both code and config file together.
     public class DBCloneService : DeveloperPortalExtensionServiceBase, IDBCloneService
     {
+        private int BACKUP_DETAIL_MAX_ATTEMPTS = 5;
         private readonly ILogger log = LogManager.Instance().GetLogger(typeof(DBCloneService));
         private SnapSession snapSession;
 
@@ -191,12 +193,32 @@ namespace DBCloning
                         snapSession.BackUpJobID = await snapClient.BackUp(snapSession);
 
                         this.log.Info($"Getting backup details for jobID {snapSession.BackUpJobID}");
-                        BackUp b = await snapClient.BackUpDetails(snapSession);
+
+                        BackUp b = null;
+                        int attempts = 0;
+                        bool stop = false;
+                        while (!stop)
+                        {
+                            b = await snapClient.BackUpDetails(snapSession);
+                            attempts++;
+                            this.log.Info($"Tried getting backup details for jobid {snapSession.BackUpJobID}. Attempt {attempts}");
+                            stop = attempts >= BACKUP_DETAIL_MAX_ATTEMPTS || b != null;
+                            if (b == null)
+                            {
+                                this.log.Info($"Backup details not available yet. Will try again in 1 sec"); 
+                                Thread.Sleep(1000);
+                            }
+                            else
+                            {
+                                this.log.Info($"Backup details loaded. Stoping the loop: {stop}");
+                            }
+                        }
                         snapSession.BackUpID = b.BackupId;
                         snapSession.BackupName = b.BackupName;
 
-                        this.log.Info($"Cloning");
+                        this.log.Info($"Cloning from backup {snapSession.BackUpID}, name = {snapSession.BackupName}");
                         await snapClient.Clone(snapSession);
+                        this.log.Info($"DB Cloning complete.");
                     }
                     else
                     {

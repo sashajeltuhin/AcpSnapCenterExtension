@@ -5,6 +5,10 @@ VisualStudioVersion = 15.0.26430.15
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DBCloneService", "DBCloneService\DBCloneService.csproj", "{FAC64439-BE66-464D-8428-D0B871108DC4}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DBCloneBootstrapper", "DBCloneBootstrapper\DBCloneBootstrapper.csproj", "{1D46367C-815C-4606-89B6-0BF9082C87A0}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Models", "Models\Models.csproj", "{38E9D1EE-5662-4539-A71B-AB0E109C3AAB}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,6 +19,14 @@ Global
 		{FAC64439-BE66-464D-8428-D0B871108DC4}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{FAC64439-BE66-464D-8428-D0B871108DC4}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{FAC64439-BE66-464D-8428-D0B871108DC4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1D46367C-815C-4606-89B6-0BF9082C87A0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1D46367C-815C-4606-89B6-0BF9082C87A0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1D46367C-815C-4606-89B6-0BF9082C87A0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1D46367C-815C-4606-89B6-0BF9082C87A0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{38E9D1EE-5662-4539-A71B-AB0E109C3AAB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{38E9D1EE-5662-4539-A71B-AB0E109C3AAB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{38E9D1EE-5662-4539-A71B-AB0E109C3AAB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{38E9D1EE-5662-4539-A71B-AB0E109C3AAB}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

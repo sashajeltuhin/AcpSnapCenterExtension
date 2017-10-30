@@ -2,6 +2,9 @@
 {
     public static class CustomProperties
     {
+        public const string DBCloneType = "DBCloneType";
+        public const string DBUser = "DBUser";
+        public const string DBUserCreds = "DBUserCreds";
         public const string SnapPlugin = "SnapPlugin"; //"MySQL"
         public const string SnapCenterUrl = "SnapCenterUrl";
         public const string SnapCenterAdmin = "SnapCenterAdmin";
