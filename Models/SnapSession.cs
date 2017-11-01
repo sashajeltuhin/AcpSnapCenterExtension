@@ -5,6 +5,7 @@ namespace DBCloning.Models
     [DataContract]
     public class SnapSession
     {
+        private string clonetype;
         private string plugin;
         private string url;
         private string admin;
@@ -22,6 +23,8 @@ namespace DBCloning.Models
         private string backUpID;
         private string backupName;
 
+        [DataMember]
+        public string CloneType { get => clonetype; set => clonetype = value; }
         [DataMember]
         public string DbKey { get => dbKey; set => dbKey = value; }
         [DataMember]
@@ -57,7 +60,7 @@ namespace DBCloning.Models
 
         public bool isValid()
         {
-            return !string.IsNullOrEmpty(this.Plugin) && !string.IsNullOrEmpty(this.Url) && !string.IsNullOrEmpty(this.Admin) && !string.IsNullOrEmpty(this.Pass)
+            return !string.IsNullOrEmpty(this.CloneType) && !string.IsNullOrEmpty(this.Plugin) && !string.IsNullOrEmpty(this.Url) && !string.IsNullOrEmpty(this.Admin) && !string.IsNullOrEmpty(this.Pass)
                 && !string.IsNullOrEmpty(this.DbName) && !string.IsNullOrEmpty(this.HostName) && !string.IsNullOrEmpty(this.CloneHostName) && !string.IsNullOrEmpty(this.Policy) && !string.IsNullOrEmpty(this.MountPath)
                 && !string.IsNullOrEmpty(this.MountScript) && !string.IsNullOrEmpty(this.LeafIP);
         }
@@ -65,6 +68,33 @@ namespace DBCloning.Models
         public string toString()
         {
             return $"Url = {this.Url}; Pass = {this.Pass}; Admin = {this.Admin}; Host = {this.hostName}; CloneHost = {this.CloneHostName}; DB = {this.DbName}; DBKey = {this.DbKey}; Policy = {this.Policy}; Plugin = {this.Plugin}; MountScript = {this.MountScript}; MountPath = {this.MountPath}; Leaf IP = {this.LeafIP}";
+        }
+
+        public static string BuildCloneName(string dbName, string appAlias)
+        {
+            return string.Format("{0}_{1}", dbName, appAlias); //clones have appname suffix
+        }
+
+        public SnapSession Clone()
+        {
+            SnapSession snapSession = new SnapSession();
+            snapSession.dbKey = string.Empty;
+            snapSession.Plugin = this.Plugin;
+            snapSession.AppName = this.AppName;
+            snapSession.Url = this.Url;
+            snapSession.Admin = this.Admin;
+            snapSession.Pass = this.Pass;
+            snapSession.DbName = SnapSession.BuildCloneName(this.DbName, this.AppName);
+            snapSession.HostName = this.CloneHostName;
+            snapSession.CloneHostName = this.CloneHostName;
+            snapSession.Policy = this.Policy;
+            snapSession.MountPath = this.MountPath;
+            snapSession.MountScript = this.MountScript;
+            snapSession.LeafIP = this.LeafIP;
+            snapSession.BackUpJobID = string.Empty;
+            snapSession.BackUpID = string.Empty;
+            snapSession.BackupName = string.Empty;
+            return snapSession;
         }
     }
 }

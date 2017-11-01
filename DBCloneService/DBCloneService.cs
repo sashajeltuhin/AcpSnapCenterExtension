@@ -19,7 +19,6 @@ namespace DBCloning
     // NOTE: You can use the "Rename" command on the "Refactor" menu to change the class name "Service1" in both code and config file together.
     public class DBCloneService : DeveloperPortalExtensionServiceBase, IDBCloneService
     {
-        private int BACKUP_DETAIL_MAX_ATTEMPTS = 5;
         private readonly ILogger log = LogManager.Instance().GetLogger(typeof(DBCloneService));
         private SnapSession snapSession;
 
@@ -40,28 +39,6 @@ namespace DBCloning
                     log.Info($"Authenticating with Apprenda. App = {version.ApplicationAlias}, Token=  {SessionContext.Instance.SessionToken}.");
                     snapSession.AppName = version.ApplicationAlias;
                     var acpClient = new ACP(SessionContext.Instance.SessionToken);
-                    //log.Info($"Loading components  for {version.ApplicationAlias}, {version.Alias}");
-                    //var components = (await acpClient.GetComponentsAsync(
-                    //    version.ApplicationAlias, version.Alias)).Payload;
-                    //log.Info($"Loaded components for {version.ApplicationAlias}, {version.Alias}");
-                    //if (components != null)
-                    //{
-                    //    foreach (Component c in components)
-                    //    {
-                    //        log.Info($"Component: {c.Name} {c.Alias}");
-                    //        var props = (await acpClient.GetComponentCustomPropertiesAsync(
-                    //            version.ApplicationAlias, version.Alias, c.Alias)).Payload;
-                    //        foreach (CustomProperty p in props)
-                    //        {
-                    //            log.Info($"Props: {p.PropertyModel.Name}");
-                    //        }
-                    //    }
-                    //}
-                    //else
-                    //{
-                    //    log.Info($"No components found for {version.ApplicationAlias}, {version.Alias}");
-                    //}
-
 
                     log.Info($"Loading SOC properties");
                     
@@ -71,6 +48,14 @@ namespace DBCloning
                         if (socprops.items != null && socprops.items.Count > 0)
                         {
                             log.Info($"Loaded SOC properties");
+                            var snapCloneType = socprops.items.First(p =>
+                            p.name == CustomProperties.DBCloneType);
+
+                            if (snapCloneType != null && snapCloneType.valueOptions.defaultValues != null && snapCloneType.valueOptions.defaultValues.Count > 0)
+                            {
+                                this.snapSession.CloneType = snapCloneType.valueOptions.defaultValues[0];
+                            }
+
                             var snapPluginProp = socprops.items.First(p =>
                             p.name == CustomProperties.SnapPlugin);
 
@@ -180,56 +165,69 @@ namespace DBCloning
                     this.log.Info($"Snap session: {this.snapSession.toString()}"); 
                     if (this.snapSession.isValid())
                     {
-                        log.Info($"Initiating DB cloning for  {version.ApplicationAlias}. SnapSession: {snapSession.toString()}");
-                        this.log.Info($"Obtaining DB key {snapSession.DbName}.");
-                        SnapCenter snapClient = await SnapCenter.NewSnapCenterSession(snapSession);
-                        snapSession.DbKey = await snapClient.GetDbKey(snapSession);
-                        log.Info($"DB Key received {snapSession.DbKey}.");
-                    
-                        this.log.Info($"Protecting resource");
-                        await snapClient.ProtectResource(this.snapSession);
-
-                        this.log.Info($"Initiating backup");
-                        snapSession.BackUpJobID = await snapClient.BackUp(snapSession);
-
-                        this.log.Info($"Getting backup details for jobID {snapSession.BackUpJobID}");
-
-                        BackUp b = null;
-                        int attempts = 0;
-                        bool stop = false;
-                        while (!stop)
+                        //check the type of cloning requested
+                        switch (this.snapSession.CloneType)
                         {
-                            b = await snapClient.BackUpDetails(snapSession);
-                            attempts++;
-                            this.log.Info($"Tried getting backup details for jobid {snapSession.BackUpJobID}. Attempt {attempts}");
-                            stop = attempts >= BACKUP_DETAIL_MAX_ATTEMPTS || b != null;
-                            if (b == null)
-                            {
-                                this.log.Info($"Backup details not available yet. Will try again in 1 sec"); 
-                                Thread.Sleep(1000);
-                            }
-                            else
-                            {
-                                this.log.Info($"Backup details loaded. Stoping the loop: {stop}");
-                            }
+                            case DBCloneTypes.CloneOriginal:
+                                CloneOriginal(snapSession);
+                                break;
+                            case DBCloneTypes.RestoreClone:
+                                RestoreClone(snapSession);
+                                break;
+                            default: //do nothing is the app needs to conect to the existing clone
+                                break;
                         }
-                        snapSession.BackUpID = b.BackupId;
-                        snapSession.BackupName = b.BackupName;
-
-                        this.log.Info($"Cloning from backup {snapSession.BackUpID}, name = {snapSession.BackupName}");
-                        await snapClient.Clone(snapSession);
-                        this.log.Info($"DB Cloning complete.");
+                        
                     }
                     else
                     {
                         this.log.Info($"Snap data incomplete. Aborting...");
                     }
-                    
-
                 }
                 catch (Exception ex)
                 {
                     log.Error($"Error cloning Db {snapSession.DbName} for application {version.ApplicationAlias}: {ex}");
+                }
+            }).GetAwaiter().GetResult();
+        }
+
+        private void CloneOriginal(SnapSession snapSession)
+        {
+            Task.Run(async () =>
+            { 
+                log.Info($"Initiating DB cloning for  {snapSession.AppName}. SnapSession: {snapSession.toString()}");
+                this.log.Info($"Obtaining DB key {snapSession.DbName}.");
+                SnapCenter snapClient = await SnapCenter.NewSnapCenterSession(snapSession);
+                await snapClient.CloneOriginal(snapSession);
+
+                string snapshotID = await snapClient.SnapshotClone(snapSession);
+                this.log.Info($"Clone backup complete. ID: {snapshotID}");
+            }).GetAwaiter().GetResult();
+         }
+
+        private void RestoreClone(SnapSession snapSession)
+        {
+            Task.Run(async () =>
+            {
+                log.Info($"Initiating DB cloning for  {snapSession.AppName}. SnapSession: {snapSession.toString()}");
+                this.log.Info($"Obtaining DB key {snapSession.DbName}.");
+                SnapCenter snapClient = await SnapCenter.NewSnapCenterSession(snapSession);
+                BackUp b = await snapClient.GetCloneSnapshot(snapSession);
+                if (b!=null)
+                {
+                    //restore snapshot
+                    snapSession.BackupName = b.BackupName;
+                    snapSession.DbName = SnapSession.BuildCloneName(snapSession.DbName, snapSession.AppName);
+                    string answer = await snapClient.RestoreClone(snapSession);
+                    this.log.Info($"Clone restore complete. Response: {answer}");
+                }
+                else
+                {
+                    this.log.Info($"No snapshots found proceding to cloning the original.");
+                    await snapClient.CloneOriginal(snapSession);
+
+                    string snapshotID = await snapClient.SnapshotClone(snapSession);
+                    this.log.Info($"Clone backup complete. ID: {snapshotID}");
                 }
             }).GetAwaiter().GetResult();
         }

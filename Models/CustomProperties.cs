@@ -17,5 +17,14 @@
         public const string SnapDataLeafIP = "SnapDataLeafIP"; //for clone
         public const string SnapMountPath = "SnapMountPath"; //for clone
     }
+
+    public static class DBCloneTypes
+    {
+        //None, RestoreClone, CloneOriginal, KeepExisting 
+        public const string None = "None";
+        public const string RestoreClone = "RestoreClone";
+        public const string CloneOriginal = "CloneOriginal";
+        public const string KeepExisting = "KeepExisting";
+    }
 }
  

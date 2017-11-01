@@ -4,12 +4,17 @@ using Newtonsoft.Json;
 using RestSharp;
 using System;
 using System.Net;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace DBCloning.Clients
 {
     public class SnapCenter
     {
+        private int CLONE_DELAY_MAX_ATTEMPTS = 20;
+        private int CLONE_QUERY_INTERVAL = 5000;
+        private int BACKUP_DETAIL_MAX_ATTEMPTS = 20;
+        private int BACKUP_QUERY_INTERVAL = 5000;
         private readonly ILogger log = LogManager.Instance().GetLogger(typeof(ACP));
         private readonly RestClient client;
         private string token;
@@ -55,9 +60,13 @@ namespace DBCloning.Clients
                 log.Info($"Token = {this.token}");
                 var response = await this.SendRequestAsync<dynamic>(Method.GET, $"api/3.0/hosts/{session.HostName}/plugins/MySQL/resources?ResourceType=Database&ResourceName={session.DbName}");
                 log.Info($"Payload: {response.Payload}");
-                string dbKey = response.Payload.Resources[0].OperationResults[0].Target.Key;
-                dbKey = dbKey.Trim('\r', '\n');
-                log.Info($"dbKey after trimming: {dbKey}");
+                string dbKey = string.Empty;
+                if (response.Response.StatusCode.ToString() == "OK")
+                {
+                    dbKey = response.Payload.Resources[0].OperationResults[0].Target.Key;
+                    dbKey = dbKey.Trim('\r', '\n');
+                    log.Info($"dbKey after trimming: {dbKey}");
+                }
                 return dbKey;
             }
             catch (Exception ex)
@@ -194,14 +203,185 @@ namespace DBCloning.Clients
                 cloneConfApp.Host = session.CloneHostName;
                 CloneConfiguration conf = new CloneConfiguration();
                 conf.type = "SMCoreContracts.SmCloneConfiguration, SMCoreContracts";
-                conf.Suffix = "_clone1";
+                conf.Suffix = string.Format("_{0}", session.AppName); //set app alias to distiguish clones
                 conf.CloneConfigurationApplication = cloneConfApp;
                 body.CloneConfiguration = conf;
                 body.Backups = new System.Collections.Generic.List<Backups>();
                 Backups back = new Backups();
                 back.PrimaryBackup = b;
                 body.Backups.Add(back);
-                var response = await this.SendRequestAsync<dynamic>(Method.POST, $"api/3.0/plugins/{session.Plugin}/resources/{session.DbKey}/clone", body);
+                var response = await this.SendRequestAsync<dynamic>(Method.POST, $"api/3.0/plugins/{session.Plugin}/resources/{session.DbKey}/clone", body, false);
+                return response.Response.StatusCode.ToString();
+            }
+            catch (Exception ex)
+            {
+                this.log.Error($"Error while cloning {session.DbKey}: {ex}");
+                throw;
+            }
+        }
+
+        internal async Task<string> CloneOriginal(SnapSession snapSession)
+        {
+            try
+            {
+                snapSession.DbKey = await GetDbKey(snapSession);
+                log.Info($"DB Key received {snapSession.DbKey}.");
+
+                this.log.Info($"Protecting resource");
+                await ProtectResource(snapSession);
+
+                this.log.Info($"Initiating backup");
+                snapSession.BackUpJobID = await BackUp(snapSession);
+
+                this.log.Info($"Getting backup details for jobID {snapSession.BackUpJobID}");
+
+                BackUp b = null;
+                int attempts = 0;
+                bool stop = false;
+                while (!stop)
+                {
+                    b = await BackUpDetails(snapSession);
+                    attempts++;
+                    this.log.Info($"Tried getting backup details for jobid {snapSession.BackUpJobID}. Attempt {attempts}");
+                    stop = attempts >= BACKUP_DETAIL_MAX_ATTEMPTS || b != null;
+                    if (b == null)
+                    {
+                        if (stop)
+                        {
+                            string err = $"The number of attempts {attempts} to get back up details exceeded the configurable threshold of {BACKUP_DETAIL_MAX_ATTEMPTS}. Stopping cloning as backup details are unavailable";
+                            this.log.Info(err);
+                            throw new Exception(err);
+
+                        }
+                        else
+                        {
+                            this.log.Info($"Backup details not available yet. Will try again in 5 sec");
+                            Thread.Sleep(BACKUP_QUERY_INTERVAL);
+                        }
+                    }
+                    else
+                    {
+                        this.log.Info($"Backup details loaded. Stoping the loop: {stop}");
+                    }
+                }
+
+                snapSession.BackUpID = b.BackupId;
+                snapSession.BackupName = b.BackupName;
+
+                this.log.Info($"Cloning from backup {snapSession.BackUpID}, name = {snapSession.BackupName}");
+                string answer = await Clone(snapSession);
+                this.log.Info($"DB Cloning complete.");
+                return answer;
+            }
+            catch (Exception ex)
+            {
+                this.log.Error($"Error while cloning {snapSession.DbName}: {ex}");
+                throw;
+            }
+        }
+
+        internal async Task<string> SnapshotClone(SnapSession session)
+        {
+            SnapSession cloneSession = session.Clone();
+            try
+            {
+                int attempts = 0;
+                bool stop = false;
+                while (!stop)
+                {
+                    cloneSession.DbKey = await this.GetDbKey(cloneSession);
+                    attempts++;
+                    this.log.Info($"Tried getting DB Key for {cloneSession.DbName}. Attempt {attempts}");
+                    stop = attempts >= CLONE_DELAY_MAX_ATTEMPTS || !string.IsNullOrEmpty(cloneSession.DbKey);
+                    if (string.IsNullOrEmpty(cloneSession.DbKey))
+                    {
+                        if (stop)
+                        {
+                            string err = $"The number of attempts {attempts} to get DB key exceeded the configurable threshold of {CLONE_DELAY_MAX_ATTEMPTS}. Stopping snapshotting as DB Key is not unavailable";
+                            this.log.Info(err);
+                            throw new Exception(err);
+
+                        }
+                        else
+                        {
+                            this.log.Info($"DB Key not available yet. Will try again in {CLONE_QUERY_INTERVAL} sec");
+                            Thread.Sleep(CLONE_QUERY_INTERVAL);
+                        }
+                    }
+                    else
+                    {
+                        this.log.Info($"DB Key loaded. Stoping the loop: {stop}");
+                    }
+                }
+                
+                log.Info($"DB Key of the clone received: {cloneSession.DbKey}");
+                this.log.Info($"Protecting clone");
+                await this.ProtectResource(cloneSession);
+                this.log.Info($"Initiating backup");
+                cloneSession.BackUpJobID = await this.BackUp(cloneSession);
+                return cloneSession.BackUpJobID;
+            }
+            catch (Exception ex)
+            {
+                this.log.Error($"Error while snapshotting the clone {cloneSession.DbName}: {ex}");
+                throw;
+            }
+        }
+
+        internal async Task<BackUp> GetCloneSnapshot(SnapSession session)
+        {
+            try
+            {
+                string cloneDB = SnapSession.BuildCloneName(session.DbName, session.AppName);
+                
+                ClientResponse<SnapBackupResponse> response = await this.SendRequestAsync<SnapBackupResponse>(Method.GET, $"api/3.0/backups?Resource={cloneDB}");
+                log.Info($"Payload Backup Detail: {response.Payload}");
+                BackUp theBackup = null;
+                if (response.Payload.Backups != null)
+                {
+                    //todo: check for the right one
+                    foreach (BackUp b in response.Payload.Backups)
+                    {
+                        theBackup = b;
+                        log.Info($"The Backup Detail: {theBackup.BackupId} {theBackup.BackupName}");
+                    }
+
+                }
+                if (theBackup == null)
+                {
+                    log.Info($"No backup details for jobid {session.BackUpJobID}");
+                }
+               
+
+                return theBackup;
+
+
+            }
+            catch (Exception ex)
+            {
+                this.log.Error($"Error while getting backup details for job id {session.BackUpJobID}: {ex}");
+                throw;
+            }
+        }
+
+        internal async Task<string> RestoreClone(SnapSession session)
+        {
+            try
+            {
+                session.DbKey = await this.GetDbKey(session);
+                log.Info($"DB Key of the clone received: {session.DbKey}");
+                PrimaryBackup b = new PrimaryBackup();
+                b.BackupName = session.BackupName;
+                RestoreBody body = new RestoreBody();
+                RestoreConfiguration cloneConfApp = new RestoreConfiguration();
+                cloneConfApp.type = "SMCoreContracts.SmSCCloneConfiguration, SMCoreContracts";
+                Backups back = new Backups();
+                back.PrimaryBackup = b;
+                body.BackupInfo = back;
+                body.PluginCode = "SCC";
+                body.RestoreLastBackup = 0;
+
+                var response = await this.SendRequestAsync<dynamic>(Method.POST, $"api/3.0/plugins/{session.Plugin}/resources/{session.DbKey}/restore", body, false);
                 return response.Response.StatusCode.ToString();
             }
             catch (Exception ex)

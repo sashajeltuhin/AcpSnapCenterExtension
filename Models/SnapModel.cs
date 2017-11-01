@@ -83,6 +83,20 @@ namespace DBCloning.Models
         public CloneConfigurationApplication CloneConfigurationApplication { get; set; }
     }
 
+    public class RestoreBody
+    {
+        public RestoreConfiguration Configuration { get; set; }
+        public Backups BackupInfo { get; set; }
+        public int RestoreLastBackup { get; set; }
+        public string PluginCode { get; set; }
+    }
+
+    public class RestoreConfiguration
+    {
+        [JsonProperty("$type")]
+        public string type { get; set; }
+    }
+
     public class PrimaryBackup
     {
         public string BackupName { get; set; }

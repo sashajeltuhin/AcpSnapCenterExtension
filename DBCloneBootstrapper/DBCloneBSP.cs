@@ -19,7 +19,7 @@ namespace DBCloneBootstrapper
             try
             {
                 log.Info("DBClone Bootstrapper starting");
-
+                
                 var prop = request.Properties.First(p => p.Name == CustomProperties.DBCloneType);
                 if (prop == null || prop.Values == null || string.IsNullOrEmpty(prop.Values.First()) || prop.Values.First().ToLower() == "none")
                 {
@@ -67,7 +67,8 @@ namespace DBCloneBootstrapper
                 }
 
                 string filePath = configFiles[0];
-                UpdateConnectionString(filePath, serverName, dbUser, dbName, dbUserPass);
+                string cloneDB = SnapSession.BuildCloneName(dbName, request.ApplicationAlias);
+                UpdateConnectionString(filePath, serverName, dbUser, cloneDB, dbUserPass);
 
                 log.Info("Connection string mod for MySql is complete");
 
