@@ -40,6 +40,26 @@ namespace DBCloning
                     snapSession.AppName = version.ApplicationAlias;
                     var acpClient = new ACP(SessionContext.Instance.SessionToken);
 
+                    try
+                    {
+                        log.Info($"Loading Developer properties");
+                        var devClient = new ACP(SessionContext.Instance.SessionToken);
+
+                        var customProperties = (await devClient.GetComponentCustomPropertiesAsync(
+                            version.ApplicationAlias, version.Alias, string.Empty)).Payload;
+                        var devDbCloneType = customProperties.First(p =>
+                            p.PropertyModel.Name == CustomProperties.DBCloneType);
+                        if (devDbCloneType != null)
+                        {
+                            this.snapSession.CloneType = devDbCloneType.Values.First();
+                        }
+                        log.Info($"Loaded Developer settings for clone type {this.snapSession.CloneType}");
+                    }
+                    catch(Exception ex)
+                    {
+                        log.Error("Issues loading developer properties. Falling back on SOC defaults", ex);
+                    }
+
                     log.Info($"Loading SOC properties");
                     
                     var socprops = (await acpClient.GetAllCustomPropertiesAsync()).Payload;
@@ -51,7 +71,7 @@ namespace DBCloning
                             var snapCloneType = socprops.items.First(p =>
                             p.name == CustomProperties.DBCloneType);
 
-                            if (snapCloneType != null && snapCloneType.valueOptions.defaultValues != null && snapCloneType.valueOptions.defaultValues.Count > 0)
+                            if (string.IsNullOrEmpty(this.snapSession.CloneType) || (snapCloneType != null && snapCloneType.valueOptions.defaultValues != null && snapCloneType.valueOptions.defaultValues.Count > 0))
                             {
                                 this.snapSession.CloneType = snapCloneType.valueOptions.defaultValues[0];
                             }
@@ -174,10 +194,22 @@ namespace DBCloning
                             case DBCloneTypes.RestoreClone:
                                 RestoreClone(snapSession);
                                 break;
-                            default: //do nothing is the app needs to conect to the existing clone
+                            default: 
+                                {
+                                    BackUp b = FindSnapshot(snapSession);
+                                    if (b == null) //if clones do not exist, clone the original
+                                    {
+                                        this.log.Info($"Clone not found. Performing cloning of the original");
+                                        CloneOriginal(snapSession);
+                                    }
+                                    else
+                                    {
+                                        this.log.Info($"Clone found. Do nothing. Will use existing copy");
+                                        //do nothing is the app needs to conect to the existing clone
+                                    }
+                                }
                                 break;
                         }
-                        
                     }
                     else
                     {
@@ -230,6 +262,18 @@ namespace DBCloning
                     this.log.Info($"Clone backup complete. ID: {snapshotID}");
                 }
             }).GetAwaiter().GetResult();
+        }
+
+        private BackUp FindSnapshot(SnapSession snapSession)
+        {
+            BackUp b = null;
+            Task.Run(async () =>
+            {
+                this.log.Info($"Obtaining DB key {snapSession.DbName}.");
+                SnapCenter snapClient = await SnapCenter.NewSnapCenterSession(snapSession);
+                b = await snapClient.GetCloneSnapshot(snapSession);
+            }).GetAwaiter().GetResult();
+            return b;
         }
     }
 }

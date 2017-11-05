@@ -58,6 +58,47 @@ namespace DBCloning.Models
         public string BackupName { get; set; }
         public string BackupId { get; set; }
         public string BackupTime { get; set; }
+        public bool IsClone { get; set; }
+        public BackupAuth Auth { get; set; }
+    }
+
+    public class BackupAuth
+    {
+        public string RunAsName { get; set; }
+    }
+
+    public class SnapShotPutBody
+    {
+        public string RunAsName { get; set; }
+        public FootPrint FootPrint { get; set; }
+        public PluginParams PluginParams { get; set; }
+    }
+
+    public class FootPrint
+    {
+        public string SVNName { get; set; }
+        public List<VolumeMapping> VolAndLunsMapping { get; set; }
+    }
+
+    public class VolumeMapping
+    {
+        public VolumeName VolumeName { get; set; }
+    }
+
+    public class PluginParams
+    {
+        public List<PluginData> Data { get; set; }
+    }
+
+    public class PluginData
+    {
+        public string Key { get; set; }
+        public string Value { get; set; }
+    }
+
+    public class VolumeName
+    {
+        public string Name { get; set; }
     }
 
     public class CloneBody
@@ -126,3 +167,4 @@ public class AuthRequest
         public string Rolename { get; set; }
     }
 }
+

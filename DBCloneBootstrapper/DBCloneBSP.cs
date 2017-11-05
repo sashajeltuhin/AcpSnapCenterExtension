@@ -67,8 +67,8 @@ namespace DBCloneBootstrapper
                 }
 
                 string filePath = configFiles[0];
-                string cloneDB = SnapSession.BuildCloneName(dbName, request.ApplicationAlias);
-                UpdateConnectionString(filePath, serverName, dbUser, cloneDB, dbUserPass);
+                //string cloneDB = SnapSession.BuildCloneName(dbName, request.ApplicationAlias);
+                UpdateConnectionString(filePath, serverName, dbUser, dbName, dbUserPass);
 
                 log.Info("Connection string mod for MySql is complete");
 

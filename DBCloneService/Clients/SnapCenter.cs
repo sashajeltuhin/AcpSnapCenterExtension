@@ -66,6 +66,10 @@ namespace DBCloning.Clients
                     dbKey = response.Payload.Resources[0].OperationResults[0].Target.Key;
                     dbKey = dbKey.Trim('\r', '\n');
                     log.Info($"dbKey after trimming: {dbKey}");
+
+                    session.RunAsName = response.Payload[0].OperationResults[0].Target.Auth.RunAsName;
+                    session.SvmName = response.Payload[0].OperationResults[0].Target.SmAppFileStorageGroups[0].StorageFoorPrint.StorageSystemResources[0].Volume.Vserver;
+                    session.VolumeName = response.Payload[0].OperationResults[0].Target.SmAppFileStorageGroups[0].StorageFoorPrint.StorageSystemResources[0].Volume.Name;
                 }
                 return dbKey;
             }
@@ -203,7 +207,7 @@ namespace DBCloning.Clients
                 cloneConfApp.Host = session.CloneHostName;
                 CloneConfiguration conf = new CloneConfiguration();
                 conf.type = "SMCoreContracts.SmCloneConfiguration, SMCoreContracts";
-                conf.Suffix = string.Format("_{0}", session.AppName); //set app alias to distiguish clones
+                conf.Suffix = string.Empty; // string.Format("_{0}", session.AppName); //set app alias to distiguish clones
                 conf.CloneConfigurationApplication = cloneConfApp;
                 body.CloneConfiguration = conf;
                 body.Backups = new System.Collections.Generic.List<Backups>();
@@ -315,6 +319,8 @@ namespace DBCloning.Clients
                 }
                 
                 log.Info($"DB Key of the clone received: {cloneSession.DbKey}");
+                this.log.Info($"Sending PUT request for the clone");
+                await PrepForSnapshot(cloneSession);
                 this.log.Info($"Protecting clone");
                 await this.ProtectResource(cloneSession);
                 this.log.Info($"Initiating backup");
@@ -332,9 +338,7 @@ namespace DBCloning.Clients
         {
             try
             {
-                string cloneDB = SnapSession.BuildCloneName(session.DbName, session.AppName);
-                
-                ClientResponse<SnapBackupResponse> response = await this.SendRequestAsync<SnapBackupResponse>(Method.GET, $"api/3.0/backups?Resource={cloneDB}");
+                ClientResponse<SnapBackupResponse> response = await this.SendRequestAsync<SnapBackupResponse>(Method.GET, $"api/3.0/backups?Resource={session.DbName}");
                 log.Info($"Payload Backup Detail: {response.Payload}");
                 BackUp theBackup = null;
                 if (response.Payload.Backups != null)
@@ -342,8 +346,10 @@ namespace DBCloning.Clients
                     //todo: check for the right one
                     foreach (BackUp b in response.Payload.Backups)
                     {
-                        theBackup = b;
-                        log.Info($"The Backup Detail: {theBackup.BackupId} {theBackup.BackupName}");
+                        if (b.IsClone) { 
+                            theBackup = b;
+                            log.Info($"The Backup Detail: {theBackup.BackupId} {theBackup.BackupName}");
+                        }
                     }
 
                 }
@@ -351,15 +357,62 @@ namespace DBCloning.Clients
                 {
                     log.Info($"No backup details for jobid {session.BackUpJobID}");
                 }
-               
+
 
                 return theBackup;
-
-
             }
             catch (Exception ex)
             {
                 this.log.Error($"Error while getting backup details for job id {session.BackUpJobID}: {ex}");
+                throw;
+            }
+        }
+
+
+
+        internal async Task<string> PrepForSnapshot(SnapSession session)
+        {
+            try
+            {
+                SnapShotPutBody body = new SnapShotPutBody();
+                body.RunAsName = session.RunAsName;
+                VolumeMapping vm = new VolumeMapping();
+                VolumeName vname = new VolumeName();
+                vname.Name = session.VolumeName;
+                vm.VolumeName = vname;
+                FootPrint fp = new FootPrint();
+                fp.SVNName = session.SvmName;
+                fp.VolAndLunsMapping = new System.Collections.Generic.List<VolumeMapping>();
+                fp.VolAndLunsMapping.Add(vm);
+                body.FootPrint = fp;
+                PluginParams pluginParams = new PluginParams();
+                pluginParams.Data = new System.Collections.Generic.List<PluginData>();
+                PluginData port = new PluginData();
+                port.Key = "PORT";
+                port.Value = "3306";
+                pluginParams.Data.Add(port);
+                PluginData ms = new PluginData();
+                port.Key = "MASTER_SLAVE";
+                port.Value = "N";
+                pluginParams.Data.Add(ms);
+                PluginData host = new PluginData();
+                port.Key = "HOST";
+                port.Value = session.CloneHostName;
+                pluginParams.Data.Add(host);
+                PluginData uid = new PluginData();
+                port.Key = "CLONE_UID";
+                port.Value = SnapSession.BuildCloneName(session.DbName, session.AppName); ;
+                pluginParams.Data.Add(uid);
+                body.PluginParams = pluginParams;
+
+                ClientResponse<SnapBackupResponse> response = await this.SendRequestAsync<SnapBackupResponse>(Method.PUT, $"api/3.0/plugins/{session.Plugin}/resources/{session.DbKey}", body, false);
+                log.Info($"Payload PUT data Detail: {response.Payload}");
+                
+                return response.Response.StatusCode.ToString();
+            }
+            catch (Exception ex)
+            {
+                this.log.Error($"Error executing PUT data for snapshot of clone with key {session.DbKey}: {ex}");
                 throw;
             }
         }

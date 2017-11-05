@@ -22,6 +22,16 @@ namespace DBCloning.Models
         private string backUpJobID;
         private string backUpID;
         private string backupName;
+        //auxiliary props for PUT request
+        private string runasname;
+        private string svmname;
+        private string volumename;
+        [DataMember]
+        public string RunAsName { get => runasname; set => runasname = value; }
+        [DataMember]
+        public string SvmName { get => svmname; set => svmname = value; }
+        [DataMember]
+        public string VolumeName { get => volumename; set => volumename = value; }
 
         [DataMember]
         public string CloneType { get => clonetype; set => clonetype = value; }
@@ -84,7 +94,7 @@ namespace DBCloning.Models
             snapSession.Url = this.Url;
             snapSession.Admin = this.Admin;
             snapSession.Pass = this.Pass;
-            snapSession.DbName = SnapSession.BuildCloneName(this.DbName, this.AppName);
+            snapSession.DbName = this.DbName;
             snapSession.HostName = this.CloneHostName;
             snapSession.CloneHostName = this.CloneHostName;
             snapSession.Policy = this.Policy;
