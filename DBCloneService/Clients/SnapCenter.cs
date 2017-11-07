@@ -53,7 +53,7 @@ namespace DBCloning.Clients
             }
         }
 
-        internal async Task<string> GetDbKey(SnapSession session)
+        internal async Task<string> GetDbKey(SnapSession session, bool originalDetails)
         {
             try
             {
@@ -67,9 +67,13 @@ namespace DBCloning.Clients
                     dbKey = dbKey.Trim('\r', '\n');
                     log.Info($"dbKey after trimming: {dbKey}");
 
-                    session.RunAsName = response.Payload[0].OperationResults[0].Target.Auth.RunAsName;
-                    session.SvmName = response.Payload[0].OperationResults[0].Target.SmAppFileStorageGroups[0].StorageFoorPrint.StorageSystemResources[0].Volume.Vserver;
-                    session.VolumeName = response.Payload[0].OperationResults[0].Target.SmAppFileStorageGroups[0].StorageFoorPrint.StorageSystemResources[0].Volume.Name;
+                    if (originalDetails)
+                    {   // RunAsName and SvmName are only coming from the original
+                        session.RunAsName = response.Payload.Resources[0].OperationResults[0].Target.Auth.RunAsName;
+                        session.SvmName = response.Payload.Resources[0].OperationResults[0].Target.SmAppFileStorageGroups[0].StorageFootPrint.StorageSystemResources[0].Volume.Vserver;
+                    }
+                    // volume name are unique for each instance
+                    session.VolumeName = response.Payload.Resources[0].OperationResults[0].Target.SmAppFileStorageGroups[0].StorageFootPrint.StorageSystemResources[0].Volume.Name;
                 }
                 return dbKey;
             }
@@ -228,11 +232,18 @@ namespace DBCloning.Clients
         {
             try
             {
-                snapSession.DbKey = await GetDbKey(snapSession);
+                snapSession.DbKey = await GetDbKey(snapSession, true);
                 log.Info($"DB Key received {snapSession.DbKey}.");
 
-                this.log.Info($"Protecting resource");
-                await ProtectResource(snapSession);
+                try
+                {
+                    this.log.Info($"Protecting resource");
+                    await ProtectResource(snapSession);
+                }
+                catch(Exception protectEx)
+                {
+                    log.Error($"Protect resource failed. Contnuing cloning...", protectEx);
+                }
 
                 this.log.Info($"Initiating backup");
                 snapSession.BackUpJobID = await BackUp(snapSession);
@@ -293,7 +304,8 @@ namespace DBCloning.Clients
                 bool stop = false;
                 while (!stop)
                 {
-                    cloneSession.DbKey = await this.GetDbKey(cloneSession);
+                    cloneSession.DbKey = await this.GetDbKey(cloneSession, false);
+                    this.log.Info($"Cloning session data: {cloneSession.toString()}");
                     attempts++;
                     this.log.Info($"Tried getting DB Key for {cloneSession.DbName}. Attempt {attempts}");
                     stop = attempts >= CLONE_DELAY_MAX_ATTEMPTS || !string.IsNullOrEmpty(cloneSession.DbKey);
@@ -308,7 +320,7 @@ namespace DBCloning.Clients
                         }
                         else
                         {
-                            this.log.Info($"DB Key not available yet. Will try again in {CLONE_QUERY_INTERVAL} sec");
+                            this.log.Info($"DB Key not available yet. Will try again in 5 sec");
                             Thread.Sleep(CLONE_QUERY_INTERVAL);
                         }
                     }
@@ -321,8 +333,15 @@ namespace DBCloning.Clients
                 log.Info($"DB Key of the clone received: {cloneSession.DbKey}");
                 this.log.Info($"Sending PUT request for the clone");
                 await PrepForSnapshot(cloneSession);
-                this.log.Info($"Protecting clone");
-                await this.ProtectResource(cloneSession);
+                try
+                {
+                    this.log.Info($"Protecting clone");
+                    await this.ProtectResource(cloneSession);
+                }
+                catch (Exception protectEx)
+                {
+                    log.Error($"Protect resource failed. Conitnuing with clone snapshot...", protectEx);
+                }
                 this.log.Info($"Initiating backup");
                 cloneSession.BackUpJobID = await this.BackUp(cloneSession);
                 return cloneSession.BackUpJobID;
@@ -334,32 +353,22 @@ namespace DBCloning.Clients
             }
         }
 
-        internal async Task<BackUp> GetCloneSnapshot(SnapSession session)
+        internal BackUp GetCloneSnapshot(SnapSession session)
         {
             try
             {
-                ClientResponse<SnapBackupResponse> response = await this.SendRequestAsync<SnapBackupResponse>(Method.GET, $"api/3.0/backups?Resource={session.DbName}");
-                log.Info($"Payload Backup Detail: {response.Payload}");
-                BackUp theBackup = null;
-                if (response.Payload.Backups != null)
+                ClientResponse<SnapBackupResponse> response = this.SendRequest<SnapBackupResponse>(Method.GET, $"api/3.0/backups?Resource={session.DbName}");
+                log.Info($"Payload Get List of backups for DB {session.DbName}: {response.Payload.ToString()}");
+                if (response.Payload.Backups.Count > 0)
                 {
-                    //todo: check for the right one
-                    foreach (BackUp b in response.Payload.Backups)
-                    {
-                        if (b.IsClone) { 
-                            theBackup = b;
-                            log.Info($"The Backup Detail: {theBackup.BackupId} {theBackup.BackupName}");
-                        }
-                    }
-
+                    log.Info($"Snapshots found. Using last...");
+                    return response.Payload.Backups[response.Payload.Backups.Count - 1];
                 }
-                if (theBackup == null)
+                else
                 {
                     log.Info($"No backup details for jobid {session.BackUpJobID}");
+                    return null;
                 }
-
-
-                return theBackup;
             }
             catch (Exception ex)
             {
@@ -375,16 +384,17 @@ namespace DBCloning.Clients
             try
             {
                 SnapShotPutBody body = new SnapShotPutBody();
-                body.RunAsName = session.RunAsName;
+                body.RunAsNames = session.RunAsName;
                 VolumeMapping vm = new VolumeMapping();
                 VolumeName vname = new VolumeName();
                 vname.Name = session.VolumeName;
                 vm.VolumeName = vname;
-                FootPrint fp = new FootPrint();
-                fp.SVNName = session.SvmName;
+                FootPrintObject fp = new FootPrintObject();
+                fp.SVMName = session.SvmName;
                 fp.VolAndLunsMapping = new System.Collections.Generic.List<VolumeMapping>();
                 fp.VolAndLunsMapping.Add(vm);
-                body.FootPrint = fp;
+                body.FootPrint = new System.Collections.Generic.List<FootPrintObject>();
+                body.FootPrint.Add(fp);
                 PluginParams pluginParams = new PluginParams();
                 pluginParams.Data = new System.Collections.Generic.List<PluginData>();
                 PluginData port = new PluginData();
@@ -392,16 +402,16 @@ namespace DBCloning.Clients
                 port.Value = "3306";
                 pluginParams.Data.Add(port);
                 PluginData ms = new PluginData();
-                port.Key = "MASTER_SLAVE";
-                port.Value = "N";
+                ms.Key = "MASTER_SLAVE";
+                ms.Value = "N";
                 pluginParams.Data.Add(ms);
                 PluginData host = new PluginData();
-                port.Key = "HOST";
-                port.Value = session.CloneHostName;
+                host.Key = "HOST";
+                host.Value = session.CloneHostName;
                 pluginParams.Data.Add(host);
                 PluginData uid = new PluginData();
-                port.Key = "CLONE_UID";
-                port.Value = SnapSession.BuildCloneName(session.DbName, session.AppName); ;
+                uid.Key = "CLONE_UID";
+                uid.Value = SnapSession.BuildCloneName(session.DbName, session.AppName);
                 pluginParams.Data.Add(uid);
                 body.PluginParams = pluginParams;
 
@@ -421,18 +431,21 @@ namespace DBCloning.Clients
         {
             try
             {
-                session.DbKey = await this.GetDbKey(session);
+                session.HostName = session.CloneHostName;
+                log.Info($"restoring clone with session: {session.toString()}");
+                session.DbKey = await this.GetDbKey(session, false);
                 log.Info($"DB Key of the clone received: {session.DbKey}");
                 PrimaryBackup b = new PrimaryBackup();
                 b.BackupName = session.BackupName;
                 RestoreBody body = new RestoreBody();
                 RestoreConfiguration cloneConfApp = new RestoreConfiguration();
-                cloneConfApp.type = "SMCoreContracts.SmSCCloneConfiguration, SMCoreContracts";
+                cloneConfApp.type = "SMCoreContracts.SmSCRestoreConfiguration, SMCoreContracts";
                 Backups back = new Backups();
                 back.PrimaryBackup = b;
                 body.BackupInfo = back;
                 body.PluginCode = "SCC";
                 body.RestoreLastBackup = 0;
+                body.Configuration = cloneConfApp;
 
                 var response = await this.SendRequestAsync<dynamic>(Method.POST, $"api/3.0/plugins/{session.Plugin}/resources/{session.DbKey}/restore", body, false);
                 return response.Response.StatusCode.ToString();
@@ -476,6 +489,49 @@ namespace DBCloning.Clients
             if ((int)response.StatusCode < 400 || response.StatusCode == HttpStatusCode.NotFound)
             {
                 ClientResponse < TPayload > r = new ClientResponse<TPayload>{ Response = response };
+                if (json)
+                {
+                    r.Payload = JsonConvert.DeserializeObject<TPayload>(response.Content);
+                }
+
+                return r;
+            }
+
+            throw new Exception($"Request failed with status code {response.StatusCode}: {response.Content}");
+        }
+
+        private ClientResponse<TPayload> SendRequest<TPayload>(Method method, string restUrl, object body = null, bool json = true)
+        {
+            var request = new RestRequest(restUrl, method);
+            log.Info($"Request url: {this.client.BaseUrl}{restUrl}");
+
+            if (!string.IsNullOrWhiteSpace(this.token))
+            {
+                log.Info($"Adding token header to the request: {this.token}");
+                request.AddHeader("token", this.token);
+            }
+
+            if (body != null)
+            {
+                string serialized = JsonConvert.SerializeObject(body);
+                log.Info($"Request body: {serialized}");
+                request.AddParameter("application/json", serialized, ParameterType.RequestBody);
+            }
+
+            var response = this.client.Execute(request);
+            this.log.Info($"Response Status Code: {response.StatusCode}");
+            this.log.Info($"Response Error Message: {response.ErrorMessage}");
+            if (response.ErrorException != null)
+            {
+                this.log.Info($"Response Error Message: {response.ErrorException.ToString()}");
+            }
+            this.log.Info($"Response Response Status: {response.ResponseStatus}");
+            this.log.Info($"Response Status Description: {response.StatusDescription}");
+            this.log.Info($"Response Content: {response.Content}");
+
+            if ((int)response.StatusCode < 400 || response.StatusCode == HttpStatusCode.NotFound)
+            {
+                ClientResponse<TPayload> r = new ClientResponse<TPayload> { Response = response };
                 if (json)
                 {
                     r.Payload = JsonConvert.DeserializeObject<TPayload>(response.Content);

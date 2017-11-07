@@ -69,14 +69,14 @@ namespace DBCloning.Models
 
     public class SnapShotPutBody
     {
-        public string RunAsName { get; set; }
-        public FootPrint FootPrint { get; set; }
+        public string RunAsNames { get; set; }
+        public List<FootPrintObject> FootPrint { get; set; }
         public PluginParams PluginParams { get; set; }
     }
 
-    public class FootPrint
+    public class FootPrintObject
     {
-        public string SVNName { get; set; }
+        public string SVMName { get; set; }
         public List<VolumeMapping> VolAndLunsMapping { get; set; }
     }
 

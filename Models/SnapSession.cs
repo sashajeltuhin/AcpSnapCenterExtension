@@ -77,7 +77,7 @@ namespace DBCloning.Models
 
         public string toString()
         {
-            return $"Url = {this.Url}; Pass = {this.Pass}; Admin = {this.Admin}; Host = {this.hostName}; CloneHost = {this.CloneHostName}; DB = {this.DbName}; DBKey = {this.DbKey}; Policy = {this.Policy}; Plugin = {this.Plugin}; MountScript = {this.MountScript}; MountPath = {this.MountPath}; Leaf IP = {this.LeafIP}";
+            return $"Clone Type = {CloneType}; Url = {this.Url}; Pass = {this.Pass}; Admin = {this.Admin}; Host = {this.hostName}; CloneHost = {this.CloneHostName}; DB = {this.DbName}; DBKey = {this.DbKey}; Policy = {this.Policy}; Plugin = {this.Plugin}; MountScript = {this.MountScript}; MountPath = {this.MountPath}; Leaf IP = {this.LeafIP}; RunAsName = {RunAsName}; SvmName = {SvmName}; VolumeName = {VolumeName}; BackupName = {BackupName}";
         }
 
         public static string BuildCloneName(string dbName, string appAlias)
@@ -104,6 +104,10 @@ namespace DBCloning.Models
             snapSession.BackUpJobID = string.Empty;
             snapSession.BackUpID = string.Empty;
             snapSession.BackupName = string.Empty;
+            snapSession.RunAsName = this.RunAsName;
+            snapSession.SvmName = this.SvmName;
+            snapSession.VolumeName = this.VolumeName;
+            snapSession.CloneType = this.CloneType;
             return snapSession;
         }
     }

@@ -43,12 +43,17 @@ namespace DBCloning
                     try
                     {
                         log.Info($"Loading Developer properties");
-                        var devClient = new ACP(SessionContext.Instance.SessionToken);
-
-                        var customProperties = (await devClient.GetComponentCustomPropertiesAsync(
-                            version.ApplicationAlias, version.Alias, string.Empty)).Payload;
+                   
+                        var customProperties = acpClient.GetComponentCustomProperties(
+                            version.ApplicationAlias, version.Alias, string.Empty).Payload;
+                        log.Info($"Loaded Developer custom properties");
+                        foreach (CustomProperty cp in customProperties)
+                        {
+                            log.Info($"Prop Name: {cp.PropertyModel.Name}, Value: {cp.Values.First()}");
+                        }
                         var devDbCloneType = customProperties.First(p =>
                             p.PropertyModel.Name == CustomProperties.DBCloneType);
+                        log.Info($"Loaded clone type property and it is not null {devDbCloneType != null}");
                         if (devDbCloneType != null)
                         {
                             this.snapSession.CloneType = devDbCloneType.Values.First();
@@ -241,15 +246,14 @@ namespace DBCloning
         {
             Task.Run(async () =>
             {
-                log.Info($"Initiating DB cloning for  {snapSession.AppName}. SnapSession: {snapSession.toString()}");
-                this.log.Info($"Obtaining DB key {snapSession.DbName}.");
+                log.Info($"Trying to restore DB for application  {snapSession.AppName}. SnapSession: {snapSession.toString()}");
                 SnapCenter snapClient = await SnapCenter.NewSnapCenterSession(snapSession);
-                BackUp b = await snapClient.GetCloneSnapshot(snapSession);
+                BackUp b = snapClient.GetCloneSnapshot(snapSession);
+                this.log.Info($"GetCloneSnapshot existed and b is not null: {b != null}");
                 if (b!=null)
                 {
                     //restore snapshot
                     snapSession.BackupName = b.BackupName;
-                    snapSession.DbName = SnapSession.BuildCloneName(snapSession.DbName, snapSession.AppName);
                     string answer = await snapClient.RestoreClone(snapSession);
                     this.log.Info($"Clone restore complete. Response: {answer}");
                 }
@@ -271,7 +275,7 @@ namespace DBCloning
             {
                 this.log.Info($"Obtaining DB key {snapSession.DbName}.");
                 SnapCenter snapClient = await SnapCenter.NewSnapCenterSession(snapSession);
-                b = await snapClient.GetCloneSnapshot(snapSession);
+                b = snapClient.GetCloneSnapshot(snapSession);
             }).GetAwaiter().GetResult();
             return b;
         }

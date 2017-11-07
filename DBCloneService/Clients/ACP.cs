@@ -55,12 +55,39 @@ namespace DBCloning.Clients
         {
             try
             {
-                return await this.SendRequestAsync<CustomProperty[]>(Method.GET, "developer", $"/customproperties/{applicationAlias}/{versionAlias}/{componentAlias}");
+                string path = $"/customproperties/{applicationAlias}/{versionAlias}";
+                if (!string.IsNullOrEmpty(componentAlias))
+                {
+                    path += $"/{componentAlias}";
+                }
+                ClientResponse < CustomProperty[] > r = await this.SendRequestAsync<CustomProperty[]>(Method.GET, "developer", path);
+                this.log.Error($"Custom properties Payload: {r.Payload}");
+                return r;
             }
             catch (Exception ex)
             {
                 this.log.Error($"Error getting component custom properties: {ex}");
-                throw;
+                throw ex;
+            }
+        }
+
+        internal ClientResponse<CustomProperty[]> GetComponentCustomProperties(string applicationAlias, string versionAlias, string componentAlias)
+        {
+            try
+            {
+                string path = $"/customproperties/{applicationAlias}/{versionAlias}";
+                if (!string.IsNullOrEmpty(componentAlias))
+                {
+                    path += $"/{componentAlias}";
+                }
+                ClientResponse<CustomProperty[]> r = this.SendRequest<CustomProperty[]>(Method.GET, "developer", path);
+                this.log.Error($"Custom properties Payload: {r.Payload}");
+                return r;
+            }
+            catch (Exception ex)
+            {
+                this.log.Error($"Error getting component custom properties: {ex}");
+                throw ex;
             }
         }
 
@@ -80,6 +107,7 @@ namespace DBCloning.Clients
         private async Task<ClientResponse<TPayload>> SendRequestAsync<TPayload>(Method method, string api, string restUrl, object body = null)
         {
             var request = new RestRequest($"{api}/api/v1{restUrl}", method);
+            log.Info($"Request url: {this.client.BaseUrl}{api}/api/v1{restUrl}");
 
             if (!string.IsNullOrWhiteSpace(this.token))
             {
@@ -106,12 +134,57 @@ namespace DBCloning.Clients
                 response.StatusCode == HttpStatusCode.NotFound ||
                 response.StatusCode == HttpStatusCode.BadRequest)
             {
-                
-                return new ClientResponse<TPayload>
+
+                ClientResponse < TPayload > r = new ClientResponse<TPayload>
                 {
                     Response = response,
                     Payload = JsonConvert.DeserializeObject<TPayload>(response.Content)
                 };
+                log.Info($"Payload Backup: {r.Payload}");
+                return r;
+            }
+
+            throw new Exception($"Request failed with status code {response.StatusCode}: {response.Content}");
+        }
+
+        private ClientResponse<TPayload> SendRequest<TPayload>(Method method, string api, string restUrl, object body = null)
+        {
+            var request = new RestRequest($"{api}/api/v1{restUrl}", method);
+            log.Info($"Request url: {this.client.BaseUrl}{api}/api/v1{restUrl}");
+
+            if (!string.IsNullOrWhiteSpace(this.token))
+            {
+                request.AddHeader("ApprendaSessionToken", this.token);
+            }
+
+            if (body != null)
+            {
+                request.AddParameter("application/json", JsonConvert.SerializeObject(body), ParameterType.RequestBody);
+            }
+
+            var response = this.client.Execute(request);
+            this.log.Info($"Response Status Code: {response.StatusCode}");
+            this.log.Info($"Response Error Message: {response.ErrorMessage}");
+            if (response.ErrorException != null)
+            {
+                this.log.Info($"Response Error Message: {response.ErrorException.ToString()}");
+            }
+            this.log.Info($"Response Response Status: {response.ResponseStatus}");
+            this.log.Info($"Response Status Description: {response.StatusDescription}");
+            this.log.Info($"Response Content: {response.Content}");
+
+            if ((int)response.StatusCode < 400 ||
+                response.StatusCode == HttpStatusCode.NotFound ||
+                response.StatusCode == HttpStatusCode.BadRequest)
+            {
+
+                ClientResponse<TPayload> r = new ClientResponse<TPayload>
+                {
+                    Response = response,
+                    Payload = JsonConvert.DeserializeObject<TPayload>(response.Content)
+                };
+                log.Info($"Payload Backup: {r.Payload}");
+                return r;
             }
 
             throw new Exception($"Request failed with status code {response.StatusCode}: {response.Content}");
