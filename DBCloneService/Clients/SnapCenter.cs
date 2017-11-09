@@ -90,7 +90,7 @@ namespace DBCloning.Clients
             }
         }
 
-
+        //Function to Get Clone Junction Path   
         internal async Task<string> GetJunctionPath (SnapSession session, bool originalDetails)
         {
             try
@@ -473,7 +473,7 @@ namespace DBCloning.Clients
                 log.Info($"restoring clone with session: {session.toString()}");
                 session.DbKey = await this.GetDbKey(session, false);
                 log.Info($"DB Key of the clone received: {session.DbKey}");
-
+                // Got Junction Path : This parameter is needed for Restore API Call
                 session.JunctionPath = await this.GetJunctionPath(session, false);
                 log.Info($"JunctionPath of the clone received: {session.JunctionPath}");
 
@@ -485,7 +485,7 @@ namespace DBCloning.Clients
                 RestoreBody body = new RestoreBody();
                 RestoreConfiguration cloneConfApp = new RestoreConfiguration();
                 cloneConfApp.type = "SMCoreContracts.SmSCRestoreConfiguration, SMCoreContracts";
-
+                //Extra Parameters needed in Restore Body:-    
                 cloneConfApp.MountCommands = new System.Collections.Generic.List<string>();
                 cloneConfApp.MountCommands.Add($"mount {session.LeafIP}:{session.JunctionPath} {session.MountPath} ; sleep 3; /var/lib/start-mysql.sh");
 
