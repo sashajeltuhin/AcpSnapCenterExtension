@@ -136,6 +136,8 @@ namespace DBCloning.Models
     {
         [JsonProperty("$type")]
         public string type { get; set; }
+        public List<string> MountCommands { get; set; }
+        public List<string> UnMountCommands { get; set; }
     }
 
     public class PrimaryBackup

@@ -61,25 +61,60 @@ namespace DBCloning.Clients
                 var response = await this.SendRequestAsync<dynamic>(Method.GET, $"api/3.0/hosts/{session.HostName}/plugins/MySQL/resources?ResourceType=Database&ResourceName={session.DbName}");
                 log.Info($"Payload: {response.Payload}");
                 string dbKey = string.Empty;
+                
                 if (response.Response.StatusCode.ToString() == "OK")
                 {
                     dbKey = response.Payload.Resources[0].OperationResults[0].Target.Key;
                     dbKey = dbKey.Trim('\r', '\n');
+                    
                     log.Info($"dbKey after trimming: {dbKey}");
+                  
 
                     if (originalDetails)
                     {   // RunAsName and SvmName are only coming from the original
                         session.RunAsName = response.Payload.Resources[0].OperationResults[0].Target.Auth.RunAsName;
                         session.SvmName = response.Payload.Resources[0].OperationResults[0].Target.SmAppFileStorageGroups[0].StorageFootPrint.StorageSystemResources[0].Volume.Vserver;
+                        // session.junctionPath = response.Payload.Resources[0].OperationResults[0].Target.SmAppFileStorageGroups[0].StorageFootPrint.StorageSystemResources[0].Volume.JunctionPath;
                     }
+
                     // volume name are unique for each instance
                     session.VolumeName = response.Payload.Resources[0].OperationResults[0].Target.SmAppFileStorageGroups[0].StorageFootPrint.StorageSystemResources[0].Volume.Name;
                 }
                 return dbKey;
+
             }
             catch (Exception ex)
             {
                 this.log.Error($"Error while getting DB key: {ex}");
+                throw ex;
+            }
+        }
+
+
+        internal async Task<string> GetJunctionPath (SnapSession session, bool originalDetails)
+        {
+            try
+            {
+                log.Info($"Token = {this.token}");
+                var response = await this.SendRequestAsync<dynamic>(Method.GET, $"api/3.0/hosts/{session.HostName}/plugins/MySQL/resources?ResourceType=Database&ResourceName={session.DbName}");
+                log.Info($"Payload: {response.Payload}");
+               
+                string junctionPath = string.Empty;
+                if (response.Response.StatusCode.ToString() == "OK")
+                {
+                    
+                    junctionPath = response.Payload.Resources[0].OperationResults[0].Target.SmAppFileStorageGroups[0].StorageFootPrint.StorageSystemResources[0].Volume.JunctionPath;
+                    
+                    log.Info($"JunectionPath after trimming: {junctionPath}");
+
+                
+                }
+                return junctionPath;
+
+            }
+            catch (Exception ex)
+            {
+                this.log.Error($"Error while getting Junction Path: {ex}");
                 throw ex;
             }
         }
@@ -305,6 +340,7 @@ namespace DBCloning.Clients
                 while (!stop)
                 {
                     cloneSession.DbKey = await this.GetDbKey(cloneSession, false);
+                    
                     this.log.Info($"Cloning session data: {cloneSession.toString()}");
                     attempts++;
                     this.log.Info($"Tried getting DB Key for {cloneSession.DbName}. Attempt {attempts}");
@@ -431,15 +467,31 @@ namespace DBCloning.Clients
         {
             try
             {
+                
+
                 session.HostName = session.CloneHostName;
                 log.Info($"restoring clone with session: {session.toString()}");
                 session.DbKey = await this.GetDbKey(session, false);
                 log.Info($"DB Key of the clone received: {session.DbKey}");
+
+                session.JunctionPath = await this.GetJunctionPath(session, false);
+                log.Info($"JunctionPath of the clone received: {session.JunctionPath}");
+
+
+               
+
                 PrimaryBackup b = new PrimaryBackup();
                 b.BackupName = session.BackupName;
                 RestoreBody body = new RestoreBody();
                 RestoreConfiguration cloneConfApp = new RestoreConfiguration();
                 cloneConfApp.type = "SMCoreContracts.SmSCRestoreConfiguration, SMCoreContracts";
+
+                cloneConfApp.MountCommands = new System.Collections.Generic.List<string>();
+                cloneConfApp.MountCommands.Add($"mount {session.LeafIP}:{session.JunctionPath} {session.MountPath} ; sleep 3; /var/lib/start-mysql.sh");
+
+                cloneConfApp.UnMountCommands = new System.Collections.Generic.List<string>();
+                cloneConfApp.UnMountCommands.Add($"killall -KILL mysqld ; sleep 3 ; umount {session.MountPath}");
+
                 Backups back = new Backups();
                 back.PrimaryBackup = b;
                 body.BackupInfo = back;
