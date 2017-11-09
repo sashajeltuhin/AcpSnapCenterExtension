@@ -17,7 +17,7 @@
         public const string SnapDataLeafIP = "SnapDataLeafIP"; //for clone
         public const string SnapMountPath = "SnapMountPath"; //for clone
 
-        public static string SnapMYSQLStart { get; set; }
+      
     }
 
     public static class DBCloneTypes
