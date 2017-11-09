@@ -16,6 +16,8 @@
         public const string SnapMountScript = "SnapMountScript";
         public const string SnapDataLeafIP = "SnapDataLeafIP"; //for clone
         public const string SnapMountPath = "SnapMountPath"; //for clone
+
+      
     }
 
     public static class DBCloneTypes

@@ -11,6 +11,7 @@ namespace DBCloning.Models
         private string admin;
         private string pass;
         private string dbKey;
+        private string junctionPath;
         private string dbName;
         private string hostName;
         private string cloneHostName;
@@ -37,6 +38,8 @@ namespace DBCloning.Models
         public string CloneType { get => clonetype; set => clonetype = value; }
         [DataMember]
         public string DbKey { get => dbKey; set => dbKey = value; }
+        [DataMember]
+        public string JunctionPath { get => junctionPath; set => junctionPath = value; }
         [DataMember]
         public string DbName { get => dbName; set => dbName = value; }
         [DataMember]
@@ -77,7 +80,7 @@ namespace DBCloning.Models
 
         public string toString()
         {
-            return $"Clone Type = {CloneType}; Url = {this.Url}; Pass = {this.Pass}; Admin = {this.Admin}; Host = {this.hostName}; CloneHost = {this.CloneHostName}; DB = {this.DbName}; DBKey = {this.DbKey}; Policy = {this.Policy}; Plugin = {this.Plugin}; MountScript = {this.MountScript}; MountPath = {this.MountPath}; Leaf IP = {this.LeafIP}; RunAsName = {RunAsName}; SvmName = {SvmName}; VolumeName = {VolumeName}; BackupName = {BackupName}";
+            return $"Clone Type = {CloneType}; Url = {this.Url}; Pass = {this.Pass}; Admin = {this.Admin}; Host = {this.hostName}; CloneHost = {this.CloneHostName}; DB = {this.DbName}; DBKey = {this.DbKey}; Policy = {this.Policy}; Plugin = {this.Plugin}; MountScript = {this.MountScript}; MountPath = {this.MountPath}; Leaf IP = {this.LeafIP}; RunAsName = {RunAsName}; SvmName = {SvmName}; VolumeName = {VolumeName}; BackupName = {BackupName} , JunctionPath ={this.junctionPath} ";
         }
 
         public static string BuildCloneName(string dbName, string appAlias)
@@ -89,6 +92,7 @@ namespace DBCloning.Models
         {
             SnapSession snapSession = new SnapSession();
             snapSession.dbKey = string.Empty;
+            snapSession.junctionPath = string.Empty;
             snapSession.Plugin = this.Plugin;
             snapSession.AppName = this.AppName;
             snapSession.Url = this.Url;

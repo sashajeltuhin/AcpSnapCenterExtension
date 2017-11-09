@@ -162,6 +162,10 @@ namespace DBCloning
                                 this.snapSession.LeafIP = snapDataLeafProp.valueOptions.defaultValues[0];
                             }
 
+
+      
+
+
                             var snapMountPathProp = socprops.items.First(p =>
                             p.name == CustomProperties.SnapMountPath);
 
