@@ -7,6 +7,23 @@ using System.Threading.Tasks;
 
 namespace DBCloning.Models
 {
+
+    public class ResourceBody
+    {
+        public string ResourceName { get; set; }
+        public string ResourceType { get; set; }
+        public string HostName { get; set; }
+        public string RunAsNames { get; set; }
+        public List<MountInfo> MountPaths { get; set; }
+        public List<FootPrintObject> FootPrint { get; set; }
+        public PluginParams PluginParams { get; set; }
+    }
+
+    public class MountInfo
+    {
+        public string MountPath { get; set; }
+    }
+
     public class BackupBody
     {
         public string name { get; set; }

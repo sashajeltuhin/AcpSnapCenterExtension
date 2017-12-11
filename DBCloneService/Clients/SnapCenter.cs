@@ -53,6 +53,51 @@ namespace DBCloning.Clients
             }
         }
 
+        internal async Task<string> CreateResource(SnapSession session)
+        {
+            string answer = string.Empty;
+            try
+            {
+                log.Info($"Token = {this.token}");
+                ResourceBody body = new ResourceBody();
+                body.ResourceName = session.DbName;
+                body.ResourceType = "Database";
+                body.HostName = session.HostName;
+                body.RunAsNames = $"{session.DbName}_{session.Plugin}";
+                body.MountPaths = new System.Collections.Generic.List<MountInfo>();
+                MountInfo mi = new MountInfo();
+                mi.MountPath = session.MountPath;
+                body.MountPaths.Add(mi);
+                VolumeMapping vm = new VolumeMapping();
+                VolumeName vname = new VolumeName();
+                vname.Name = session.VolumeName;
+                vm.VolumeName = vname;
+                FootPrintObject fp = new FootPrintObject();
+                fp.SVMName = session.SvmName;
+                fp.VolAndLunsMapping = new System.Collections.Generic.List<VolumeMapping>();
+                fp.VolAndLunsMapping.Add(vm);
+                body.FootPrint = new System.Collections.Generic.List<FootPrintObject>();
+                body.FootPrint.Add(fp);
+                PluginParams pluginParams = new PluginParams();
+                pluginParams.Data = new System.Collections.Generic.List<PluginData>();
+                PluginData ms = new PluginData();
+                ms.Key = "MASTER_SLAVE";
+                ms.Value = "N";
+                pluginParams.Data.Add(ms);
+                body.PluginParams = pluginParams;
+
+                var response = await this.SendRequestAsync<dynamic>(Method.POST, $"api/3.0/plugins/MySQL/resources", body, false);
+                log.Info($"Payload: {response.Payload}");
+                string dbKey = string.Empty;
+                answer = response.Response.Content.ToString();
+            }
+            catch (Exception ex)
+            {
+                this.log.Error($"Error while getting creating resource key: {ex}");
+            }
+            return answer;
+        }
+
         internal async Task<string> GetDbKey(SnapSession session, bool originalDetails)
         {
             try
@@ -267,6 +312,10 @@ namespace DBCloning.Clients
         {
             try
             {
+                //create resource in SnapCenter, if does not exist
+                string r = await CreateResource(snapSession);
+                log.Info($"Called create resource. Response: {r}.");
+
                 snapSession.DbKey = await GetDbKey(snapSession, true);
                 log.Info($"DB Key received {snapSession.DbKey}.");
 
