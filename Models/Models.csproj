@@ -53,6 +53,7 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="SnapModel.cs" />
     <Compile Include="SnapSession.cs" />
+    <Compile Include="SOCModel.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

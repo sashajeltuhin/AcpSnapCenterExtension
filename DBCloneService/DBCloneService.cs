@@ -5,6 +5,7 @@ using Apprenda.Services.Logging;
 using DBCloning.Clients;
 using DBCloning.Models;
 using DBCloning.Properties;
+using SocModels;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -120,8 +121,7 @@ namespace DBCloning
                                 this.snapSession.DbName = dbNameProp.valueOptions.defaultValues[0];
                             }
 
-
-                            //todo: dynamically, based on policies, figure out a host where clones need to be created
+                        
                             var hostNameProp = socprops.items.First(p =>
                                     p.name == CustomProperties.SnapDBHost);
 
@@ -132,11 +132,30 @@ namespace DBCloning
 
                             var cloneHostNameProp = socprops.items.First(p =>
                                    p.name == CustomProperties.SnapDBCloneHost);
-
+                            this.log.Info($"Processing clone hostname settings");
                             if (cloneHostNameProp != null && cloneHostNameProp.valueOptions.defaultValues != null && cloneHostNameProp.valueOptions.defaultValues.Count > 0)
                             {
                                 this.snapSession.CloneHostName = cloneHostNameProp.valueOptions.defaultValues[0];
+                                this.log.Info($"Going with the default value {this.snapSession.CloneHostName}.");
                             }
+                            else if (cloneHostNameProp != null && cloneHostNameProp.valueOptions.possibleValues != null && cloneHostNameProp.valueOptions.possibleValues.Count == 1)
+                            {
+                                this.log.Info($"Default is not set. Only one possible value found = {cloneHostNameProp.valueOptions.possibleValues[0]}. Use it");
+                                this.snapSession.CloneHostName = cloneHostNameProp.valueOptions.possibleValues[0];     
+                            }
+                            else if (cloneHostNameProp != null && cloneHostNameProp.valueOptions.possibleValues != null && cloneHostNameProp.valueOptions.possibleValues.Count > 0)
+                            {
+                                this.log.Info($"Default is not set and multiple servers are configured. Will figure out which of the configured servers is less busy");
+                                string preferred = FindTargetNode(acpClient, cloneHostNameProp.valueOptions.possibleValues);
+                                this.log.Info($"The preferred server is {preferred}. Will use it");
+                                this.snapSession.CloneHostName = preferred;
+                            }
+                            else
+                            {
+                                log.Error($"Error cloning Db {snapSession.DbName} for application {version.ApplicationAlias}: The Clone Host Name property is not configured");
+                                return;
+                            }
+                            this.log.Info($"CloneHostName set to {this.snapSession.CloneHostName}.");
 
                             var policyProp = socprops.items.First(p =>
                                     p.name == CustomProperties.SnapPolicy);
@@ -282,6 +301,35 @@ namespace DBCloning
                 b = snapClient.GetCloneSnapshot(snapSession);
             }).GetAwaiter().GetResult();
             return b;
+        }
+
+
+        private string FindTargetNode(ACP acpClient, List<string> requested)
+        {
+            string hostName = string.Empty;
+            try
+            {
+                NodePageResourceBase data = acpClient.GetNodeData();
+                double smallest = double.MaxValue;
+                foreach(Node n in data.items)
+                {
+                    foreach(NodeRole nr in n.nodeRoles)
+                    {
+                        double perMem = nr.allocatedMemory / nr.totalMemory;
+                        if (smallest > perMem && requested.Contains(n.name))
+                        {
+                            smallest = perMem;
+                            hostName = n.name;
+                        }
+                    }
+                }
+            }
+            catch(Exception ex)
+            {
+                this.log.Error($"Issues when finding the least loaded node on Apprenda: {ex}");
+            }
+            
+            return hostName;
         }
     }
 }

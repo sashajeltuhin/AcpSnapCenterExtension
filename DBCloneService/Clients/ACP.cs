@@ -7,6 +7,7 @@ using DBCloning.Properties;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using DBCloning.Models;
+using SocModels;
 
 namespace DBCloning.Clients
 {
@@ -145,6 +146,21 @@ namespace DBCloning.Clients
             }
 
             throw new Exception($"Request failed with status code {response.StatusCode}: {response.Content}");
+        }
+
+        internal NodePageResourceBase GetNodeData()
+        {
+            try
+            {
+                ClientResponse<NodePageResourceBase> r = this.SendRequest<NodePageResourceBase>(Method.GET, "soc", $"/nodes?pageSize=200");
+                this.log.Error($"GetNodeData Payload: {r.Payload}");
+                return r.Payload;
+            }
+            catch (Exception ex)
+            {
+                this.log.Error($"Error getting node data properties: {ex}");
+                throw;
+            }
         }
 
         private ClientResponse<TPayload> SendRequest<TPayload>(Method method, string api, string restUrl, object body = null)

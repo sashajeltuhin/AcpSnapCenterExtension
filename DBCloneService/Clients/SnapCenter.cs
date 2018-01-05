@@ -313,8 +313,8 @@ namespace DBCloning.Clients
             try
             {
                 //create resource in SnapCenter, if does not exist
-                string r = await CreateResource(snapSession);
-                log.Info($"Called create resource. Response: {r}.");
+                //string r = await CreateResource(snapSession);
+                //log.Info($"Called create resource. Response: {r}.");
 
                 snapSession.DbKey = await GetDbKey(snapSession, true);
                 log.Info($"DB Key received {snapSession.DbKey}.");
