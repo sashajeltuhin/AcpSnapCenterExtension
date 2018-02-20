@@ -17,7 +17,7 @@ The databases similar to the applications themselves are segmented based on the 
  It communicates with SnapCenter REST API to perform the desired type of cloning and mounting based on the metadata that accompanies the application. 
  At a later stage of the pipeline, Apprenda Bootstrapper for SnapCenter is called to update the application configuration file with the new connection information, 
  so that the application, once it is containerized by the platform, can connect to the cloned database. ​
- ![Architecture flow] (https://github.com/sashajeltuhin/AcpSnapCenterExtension/blob/master/docs/process.PNG "Architecture Flow")
+ ![Architecture flow](https://github.com/sashajeltuhin/AcpSnapCenterExtension/blob/master/docs/process.PNG "Architecture Flow")
 
  ### Installation
  * Create the following Custom Properties:
@@ -42,12 +42,12 @@ The databases similar to the applications themselves are segmented based on the 
         * SnapMountScript
         * SnapDataLeafIP
         * SnapMountPath
- * Deploy [the extension, "DBCloneExt.zip"] (https://github.com/sashajeltuhin/AcpSnapCenterExtension/blob/master/Deploy/DBCloneExt.zip) to Apprenda
+ * Deploy [the extension, "DBCloneExt.zip"](https://github.com/sashajeltuhin/AcpSnapCenterExtension/blob/master/Deploy/DBCloneExt.zip) to Apprenda
  * In the operator portal, go to Configuration - Registry and update **DeveloperPortalExtServices** setting with the reference to the extension in the following format: `<application_name>(<version_number>)/<service_name>`
  If the setting does not exist, create it.
  NOTE: when upgrading the extension, make sure to temporary remove the setting value prior to the deployment. Once the new version is deployed, put the setting value back in the resgitry, referencing the new version number
 
- * Deploy [the bootstrapper "BSP.zip"] (https://github.com/sashajeltuhin/AcpSnapCenterExtension/blob/master/Deploy/BSP.zip) via Apprenda operator portal. 
+ * Deploy [the bootstrapper "BSP.zip"](https://github.com/sashajeltuhin/AcpSnapCenterExtension/blob/master/Deploy/BSP.zip) via Apprenda operator portal. 
 
 ​
 
