@@ -76,7 +76,7 @@ namespace DBCloneBootstrapper
             catch (Exception ex)
             {
                 log.Error($"Error updating connection info for application {request.ApplicationAlias}. Reason: {ex.Message}");
-                return BootstrappingResult.Failure(new[] { $"Error instrumenting perf monitoring for the app. {ex}" });
+                return BootstrappingResult.Failure(new[] { $"Error updating connection info for application {request.ApplicationAlias}. Reason: {ex.Message}" });
             }
 
             return BootstrappingResult.Success();
