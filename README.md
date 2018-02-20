@@ -28,8 +28,6 @@ The databases similar to the applications themselves are segmented based on the 
 			In both of these cases, the application starts from a clean slate as far as the data is concerned. All changes to the data that were made while the application was tested are overwritten by the recent production data or the original state of the earlier clone.​
 			In some cases, it is, however, desirable not to refresh the data.​
     * KeepExisting option allows developers to maintain the state of the data between the test runs. ​
-
-​
   * DBUser  (Visible and Editable by devs)
   * DBUserCreds (Visible and Editable by devs)
   * SnapPlugin
