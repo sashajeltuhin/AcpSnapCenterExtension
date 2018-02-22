@@ -60,6 +60,24 @@ namespace DBCloning
                             this.snapSession.CloneType = devDbCloneType.Values.First();
                         }
                         log.Info($"Loaded Developer settings for clone type {this.snapSession.CloneType}");
+
+                        var devDbName = customProperties.First(p =>
+                            p.PropertyModel.Name == CustomProperties.SnapDBName);
+                        log.Info($"Loaded db name property and it is not null {devDbName != null}");
+                        if (devDbName != null)
+                        {
+                            this.snapSession.DbName = devDbName.Values.First();
+                        }
+                        log.Info($"Loaded Developer settings for DBName {this.snapSession.DbName}");
+
+                        var devPlugin = customProperties.First(p =>
+                            p.PropertyModel.Name == CustomProperties.SnapPlugin);
+                        log.Info($"Loaded Snap Plugin property and it is not null {devPlugin != null}");
+                        if (devPlugin != null)
+                        {
+                            this.snapSession.Plugin = devPlugin.Values.First();
+                        }
+                        log.Info($"Loaded Developer settings for Snap Plugin {this.snapSession.Plugin}");
                     }
                     catch(Exception ex)
                     {
@@ -77,7 +95,7 @@ namespace DBCloning
                             var snapCloneType = socprops.items.First(p =>
                             p.name == CustomProperties.DBCloneType);
 
-                            if (string.IsNullOrEmpty(this.snapSession.CloneType) || (snapCloneType != null && snapCloneType.valueOptions.defaultValues != null && snapCloneType.valueOptions.defaultValues.Count > 0))
+                            if (string.IsNullOrEmpty(this.snapSession.CloneType) && (snapCloneType != null && snapCloneType.valueOptions.defaultValues != null && snapCloneType.valueOptions.defaultValues.Count > 0))
                             {
                                 this.snapSession.CloneType = snapCloneType.valueOptions.defaultValues[0];
                             }
@@ -85,7 +103,7 @@ namespace DBCloning
                             var snapPluginProp = socprops.items.First(p =>
                             p.name == CustomProperties.SnapPlugin);
 
-                            if (snapPluginProp != null && snapPluginProp.valueOptions.defaultValues != null && snapPluginProp.valueOptions.defaultValues.Count > 0)
+                            if (string.IsNullOrEmpty(this.snapSession.Plugin) && snapPluginProp != null && snapPluginProp.valueOptions.defaultValues != null && snapPluginProp.valueOptions.defaultValues.Count > 0)
                             {
                                 this.snapSession.Plugin = snapPluginProp.valueOptions.defaultValues[0];
                             }
@@ -116,7 +134,7 @@ namespace DBCloning
 
                             var dbNameProp = socprops.items.First(p =>
                                     p.name == CustomProperties.SnapDBName);
-                            if (dbNameProp != null && dbNameProp.valueOptions.defaultValues != null && dbNameProp.valueOptions.defaultValues.Count > 0)
+                            if (string.IsNullOrEmpty(this.snapSession.DbName) && dbNameProp != null && dbNameProp.valueOptions.defaultValues != null && dbNameProp.valueOptions.defaultValues.Count > 0)
                             {
                                 this.snapSession.DbName = dbNameProp.valueOptions.defaultValues[0];
                             }
